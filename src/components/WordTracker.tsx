@@ -74,6 +74,9 @@ const WordTracker = () => {
 
   const resetProgress = () => {
     setFoundWords(new Set());
+    setHintsData({});
+    setTotalPossibleWords(0);
+    setHasLoadedHints(false);
   };
 
   const removeWord = (wordToRemove: string) => {
