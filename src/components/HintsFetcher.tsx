@@ -22,129 +22,125 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
   const [lastFetched, setLastFetched] = useState<string | null>(null);
   const { toast } = useToast();
 
-  // Parse hints data from the fetched page content
-  const parseHintsFromContent = (content: string): { hintsData: HintsData; totalWords: number } | null => {
+  // Parse hints data from page text (expects rows like "A 3 2 1 ...")
+  const parseHintsFromContent = (
+    content: string
+  ): { hintsData: HintsData; totalWords: number } | null => {
     try {
-      // Look for hints grid patterns in the content
-      // NYT hints pages typically have a table or grid structure
       const hintsData: HintsData = {};
       let totalWords = 0;
 
-      // Try to find common patterns for hints data
-      // This is a simplified parser - in reality, we'd need to adapt to the exact structure
-      const lines = content.split('\n');
-      let inHintsSection = false;
+      const lines = content.split("\n").map((l) => l.trim());
 
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].toLowerCase();
-        
-        // Look for hints table markers
-        if (line.includes('hint') || line.includes('grid') || line.includes('letter')) {
-          inHintsSection = true;
-          continue;
-        }
-
-        if (inHintsSection) {
-          // Look for letter-number patterns (e.g., "A: 3, 2, 1" or "B 4 2 5")
-          const letterMatch = line.match(/([a-z])[:\s]+([0-9\s,]+)/i);
-          if (letterMatch) {
-            const letter = letterMatch[1].toUpperCase();
-            const numbers = letterMatch[2].match(/\d+/g);
-            
-            if (numbers && numbers.length > 0) {
-              hintsData[letter] = {};
-              numbers.forEach((num, index) => {
-                const count = parseInt(num);
-                const length = 4 + index; // Assuming 4-letter words start the count
-                if (count > 0) {
-                  hintsData[letter][length] = count;
-                  totalWords += count;
-                }
-              });
-            }
+      for (const raw of lines) {
+        const line = raw.replace(/\u00A0/g, " ").toUpperCase();
+        // Match: single letter then a series of numbers (separated by spaces, commas, pipes, etc.)
+        const letterMatch = line.match(/^([A-Z])[:\s|\-]+([0-9\s,|/]+)/i);
+        if (letterMatch) {
+          const letter = letterMatch[1].toUpperCase();
+          const numbers = (letterMatch[2].match(/\d+/g) || []).map(Number);
+          if (numbers.length) {
+            hintsData[letter] = {};
+            numbers.forEach((count, idx) => {
+              const length = 4 + idx; // columns usually start at 4 letters
+              if (count > 0) {
+                hintsData[letter][length] = count;
+                totalWords += count;
+              }
+            });
           }
         }
       }
 
-      // If we couldn't parse the structure, create sample data based on common patterns
       if (Object.keys(hintsData).length === 0) {
-        // Generate realistic hints data as fallback
-        const letters = ['B', 'E', 'H', 'L', 'N', 'O', 'W']; // Common spelling bee letters
-        letters.forEach(letter => {
-          hintsData[letter] = {};
-          // Realistic distribution: more 4-6 letter words, fewer long words
-          const fourLetter = Math.floor(Math.random() * 4) + 1;
-          const fiveLetter = Math.floor(Math.random() * 3) + 1;
-          const sixLetter = Math.floor(Math.random() * 2) + 0;
-          const sevenPlus = Math.floor(Math.random() * 2) + 0;
-          
-          if (fourLetter > 0) { hintsData[letter][4] = fourLetter; totalWords += fourLetter; }
-          if (fiveLetter > 0) { hintsData[letter][5] = fiveLetter; totalWords += fiveLetter; }
-          if (sixLetter > 0) { hintsData[letter][6] = sixLetter; totalWords += sixLetter; }
-          if (sevenPlus > 0) { hintsData[letter][7] = sevenPlus; totalWords += sevenPlus; }
-        });
+        return null; // don't fabricate data; signal parse failure
       }
 
       return { hintsData, totalWords };
     } catch (error) {
-      console.error('Error parsing hints data:', error);
+      console.error("Error parsing hints data:", error);
       return null;
     }
   };
 
+  // CORS-safe fetch via Jina AI Reader proxy
+  const fetchTextViaProxy = async (rawUrl: string): Promise<string> => {
+    const proxied = 'https://r.jina.ai/http://' + rawUrl.replace(/^https?:\/\//, '');
+    const res = await fetch(proxied, { headers: { Accept: 'text/plain' } });
+    if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
+    return await res.text();
+  };
+
+  // If user pastes a NYTimes forum URL with a date, derive the matching nytbee.com date page
+  const deriveNytbeeUrl = (nytimesUrl: string): string | null => {
+    const m = nytimesUrl.match(/nytimes\.com\/(\d{4})\/(\d{2})\/(\d{2})\/crosswords\/spelling-bee-forum/i);
+    if (!m) return null;
+    const [, y, mm, dd] = m;
+    return `https://nytbee.com/${y}/${mm}/${dd}`;
+  };
   const fetchHints = async () => {
     if (!url.trim()) {
       toast({
         title: "URL Required",
         description: "Please enter the URL for today's hints page.",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
 
     setIsLoading(true);
-    
+
     try {
-      // Fetch website content using built-in functionality (this would be replaced with actual API call)
-      // For now, we'll simulate fetching and parsing
-      await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate network delay
-      
-      // Generate realistic sample data based on the URL
-      const fallbackHints: HintsData = {
-        'B': { 4: 3, 5: 2, 6: 1 },
-        'E': { 4: 2, 5: 3, 6: 2, 7: 1 },
-        'H': { 4: 2, 5: 1, 6: 1 },
-        'L': { 4: 1, 5: 2, 6: 1 },
-        'N': { 4: 2, 5: 1 },
-        'O': { 4: 1, 5: 2, 6: 1 },
-        'W': { 4: 3, 5: 2, 7: 1 }
-      };
-      
-      const fallbackTotal = Object.values(fallbackHints)
-        .flatMap(letterData => Object.values(letterData))
-        .reduce((sum, count) => sum + count, 0);
-      
-      onHintsLoaded(fallbackHints, fallbackTotal);
+      const inputUrl = url.trim();
+      const candidates: string[] = [];
+
+      const derived = deriveNytbeeUrl(inputUrl);
+      if (derived) candidates.push(derived);
+      candidates.push(inputUrl);
+
+      let parsed: { hintsData: HintsData; totalWords: number } | null = null;
+      let sourceUsed = "";
+
+      for (const src of candidates) {
+        try {
+          const text = await fetchTextViaProxy(src);
+          parsed = parseHintsFromContent(text);
+          if (parsed) {
+            sourceUsed = src;
+            break;
+          }
+        } catch (e) {
+          console.warn("Fetch/parse failed for", src, e);
+        }
+      }
+
+      if (!parsed) {
+        toast({
+          title: "Could not parse hints",
+          description:
+            "We couldn't find a recognizable hints grid on that page. Try a nytbee.com daily page for full counts.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      onHintsLoaded(parsed.hintsData, parsed.totalWords);
       setLastFetched(new Date().toLocaleString());
-      
       toast({
         title: "Hints Loaded!",
-        description: `Successfully loaded hints data with ${fallbackTotal} total words.`,
+        description: `Loaded ${parsed.totalWords} total words from ${sourceUsed.includes("nytbee.com") ? "nytbee.com" : "the provided URL"}.`,
       });
-      
     } catch (error) {
-      console.error('Error fetching hints:', error);
-      
+      console.error("Error fetching hints:", error);
       toast({
         title: "Error Loading Hints",
         description: "Could not fetch hints data. Please check the URL and try again.",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);
     }
   };
-
   const loadTodaysHints = () => {
     // Generate today's likely URL pattern
     const today = new Date();
