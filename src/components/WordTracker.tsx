@@ -3,7 +3,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { RotateCcw, Target, Plus } from 'lucide-react';
+import { Target, Plus, X } from 'lucide-react';
 import HintsGrid from './HintsGrid';
 import ImageUpload from './ImageUpload';
 import HintsFetcher from './HintsFetcher';
@@ -72,8 +72,12 @@ const WordTracker = () => {
     }
   };
 
-  const resetProgress = () => {
-    setFoundWords(new Set());
+  const removeWord = (wordToRemove: string) => {
+    setFoundWords(prev => {
+      const updated = new Set(prev);
+      updated.delete(wordToRemove);
+      return updated;
+    });
   };
 
   const progressPercentage = totalPossibleWords > 0 
@@ -81,47 +85,38 @@ const WordTracker = () => {
     : 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-wax/20 to-honeycomb/10">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800">
       <div className="container max-w-6xl mx-auto p-6">
         {/* Header */}
         <div className="mb-8 text-center">
           <div className="inline-flex items-center gap-3 mb-4">
-            <div className="p-3 rounded-full bg-gradient-to-br from-honeycomb to-pollen">
-              <Target className="h-6 w-6 text-foreground" />
+            <div className="p-3 rounded-full bg-gradient-to-br from-blue-600 to-purple-600">
+              <Target className="h-6 w-6 text-white" />
             </div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-foreground to-honeycomb-dark bg-clip-text text-transparent">
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-white to-blue-300 bg-clip-text text-transparent">
               Spelling Bee Tracker
             </h1>
           </div>
-          <p className="text-lg text-muted-foreground mb-6">
+          <p className="text-lg text-slate-300 mb-6">
             Load today's hints and track your progress with image uploads
           </p>
           
           {hasLoadedHints && (
-            <Card className="inline-flex items-center gap-6 p-4 bg-gradient-to-r from-honeycomb/10 to-pollen/10 border-honeycomb/30">
+            <Card className="inline-flex items-center gap-6 p-4 bg-slate-800/80 border-slate-700/50 backdrop-blur-sm">
               <div className="text-center">
-                <div className="text-2xl font-bold text-foreground">{foundWords.size}</div>
-                <div className="text-sm text-muted-foreground">Words Found</div>
+                <div className="text-2xl font-bold text-white">{foundWords.size}</div>
+                <div className="text-sm text-slate-400">Words Found</div>
               </div>
-              <div className="h-8 w-px bg-border"></div>
+              <div className="h-8 w-px bg-slate-600"></div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-muted-foreground">{totalPossibleWords - foundWords.size}</div>
-                <div className="text-sm text-muted-foreground">Remaining</div>
+                <div className="text-2xl font-bold text-slate-300">{totalPossibleWords - foundWords.size}</div>
+                <div className="text-sm text-slate-400">Remaining</div>
               </div>
-              <div className="h-8 w-px bg-border"></div>
+              <div className="h-8 w-px bg-slate-600"></div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-honeycomb-dark">{progressPercentage}%</div>
-                <div className="text-sm text-muted-foreground">Complete</div>
+                <div className="text-2xl font-bold text-blue-400">{progressPercentage}%</div>
+                <div className="text-sm text-slate-400">Complete</div>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={resetProgress}
-                className="ml-4 border-honeycomb/50 hover:bg-honeycomb/10"
-              >
-                <RotateCcw className="h-4 w-4 mr-2" />
-                Reset
-              </Button>
             </Card>
           )}
         </div>
@@ -145,30 +140,10 @@ const WordTracker = () => {
               {/* Hints Grid */}
               <div>
                 <HintsGrid hintsData={remainingHintsData} foundWords={foundWords} />
-                
-                {/* Option to reload hints */}
-                <Card className="mt-6 p-4 bg-muted/30 border-border/50">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-medium text-foreground">Hints Data</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Loaded {totalPossibleWords} total words
-                      </p>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setHasLoadedHints(false)}
-                      className="border-honeycomb/50 hover:bg-honeycomb/10"
-                    >
-                      Load Different Hints
-                    </Button>
-                  </div>
-                </Card>
 
                 {/* Manual Word Input */}
-                <Card className="mt-6 p-4 bg-background border-honeycomb/20">
-                  <h3 className="font-semibold text-foreground mb-3">Add Word Manually</h3>
+                <Card className="mt-6 p-4 bg-slate-800/60 border-slate-700/50">
+                  <h3 className="font-semibold text-white mb-3">Add Word Manually</h3>
                   <div className="flex gap-2">
                     <Input
                       type="text"
@@ -176,12 +151,12 @@ const WordTracker = () => {
                       value={manualWord}
                       onChange={(e) => setManualWord(e.target.value)}
                       onKeyPress={handleManualWordKeyPress}
-                      className="flex-1 border-honeycomb/30 focus:border-honeycomb/50"
+                      className="flex-1 bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-400 focus:border-blue-500"
                     />
                     <Button
                       onClick={addManualWord}
                       size="sm"
-                      className="bg-honeycomb hover:bg-honeycomb-dark text-foreground"
+                      className="bg-blue-600 hover:bg-blue-700 text-white"
                     >
                       <Plus className="h-4 w-4" />
                     </Button>
@@ -190,17 +165,22 @@ const WordTracker = () => {
 
                 {/* Found Words Display */}
                 {foundWords.size > 0 && (
-                  <Card className="mt-6 p-4 bg-background border-honeycomb/20">
-                    <h3 className="font-semibold text-foreground mb-3">Found Words ({foundWords.size})</h3>
+                  <Card className="mt-6 p-4 bg-slate-800/60 border-slate-700/50">
+                    <h3 className="font-semibold text-white mb-3">Found Words ({foundWords.size})</h3>
                     <div className="flex flex-wrap gap-2">
                       {Array.from(foundWords).sort().map(word => (
-                        <Badge 
+                        <div 
                           key={word} 
-                          variant="secondary"
-                          className="bg-honeycomb/20 text-foreground hover:bg-honeycomb/30"
+                          className="flex items-center gap-1 bg-slate-700/60 text-slate-200 px-3 py-1 rounded-full text-sm border border-slate-600/50"
                         >
-                          {word}
-                        </Badge>
+                          <span>{word}</span>
+                          <button
+                            onClick={() => removeWord(word)}
+                            className="ml-1 p-0.5 hover:bg-red-600/50 rounded-full transition-colors"
+                          >
+                            <X className="h-3 w-3 text-slate-400 hover:text-red-300" />
+                          </button>
+                        </div>
                       ))}
                     </div>
                   </Card>
@@ -209,14 +189,14 @@ const WordTracker = () => {
             </div>
 
             {/* Progress Bar */}
-            <Card className="mt-8 p-6 bg-gradient-to-r from-background to-wax/30 border-honeycomb/20">
+            <Card className="mt-8 p-6 bg-slate-800/60 border-slate-700/50">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-foreground">Overall Progress</h3>
-                <span className="text-sm text-muted-foreground">{foundWords.size} of {totalPossibleWords} words</span>
+                <h3 className="font-semibold text-white">Overall Progress</h3>
+                <span className="text-sm text-slate-400">{foundWords.size} of {totalPossibleWords} words</span>
               </div>
-              <div className="w-full bg-muted rounded-full h-3">
+              <div className="w-full bg-slate-700 rounded-full h-3">
                 <div 
-                  className="bg-gradient-to-r from-honeycomb to-pollen h-3 rounded-full transition-all duration-500 ease-out"
+                  className="bg-gradient-to-r from-blue-500 to-purple-500 h-3 rounded-full transition-all duration-500 ease-out"
                   style={{ width: `${progressPercentage}%` }}
                 />
               </div>
