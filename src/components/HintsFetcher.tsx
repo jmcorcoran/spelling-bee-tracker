@@ -3,8 +3,9 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { FileText, Download, AlertCircle, CheckCircle } from 'lucide-react';
+import { FileText, Download, AlertCircle, CheckCircle, Upload, Image as ImageIcon, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { createWorker } from 'tesseract.js';
 
 interface HintsData {
   [letter: string]: {
@@ -19,9 +20,21 @@ interface HintsFetcherProps {
 const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
   const [hintsText, setHintsText] = useState('');
   const [twoLetterText, setTwoLetterText] = useState('');
+  const [hintsImage, setHintsImage] = useState<File | null>(null);
+  const [twoLetterImage, setTwoLetterImage] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [lastFetched, setLastFetched] = useState<string | null>(null);
   const { toast } = useToast();
+
+  const processImageWithOCR = async (file: File): Promise<string> => {
+    const worker = await createWorker('eng');
+    try {
+      const { data: { text } } = await worker.recognize(file);
+      return text;
+    } finally {
+      await worker.terminate();
+    }
+  };
 
   const parseTwoLetterList = (text: string): { combo: string; count: number }[] => {
     if (!text.trim()) return [];
@@ -130,10 +143,10 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
   };
 
   const parseHints = async () => {
-    if (!hintsText.trim()) {
+    if (!hintsImage && !hintsText.trim()) {
       toast({
-        title: "Text Required",
-        description: "Please paste the hints table text.",
+        title: "Image or Text Required",
+        description: "Please upload an image of the hints table or paste the text.",
         variant: "destructive",
       });
       return;
@@ -142,13 +155,29 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
     setIsLoading(true);
 
     try {
-      const parsed = parseHintsFromContent(hintsText.trim());
-      const twoLetterList = parseTwoLetterList(twoLetterText.trim());
+      // Get text from image or use pasted text
+      let hintsContent = hintsText;
+      let twoLetterContent = twoLetterText;
+      
+      if (hintsImage) {
+        console.log('Processing hints image with OCR...');
+        hintsContent = await processImageWithOCR(hintsImage);
+        console.log('OCR result for hints:', hintsContent);
+      }
+      
+      if (twoLetterImage) {
+        console.log('Processing two-letter image with OCR...');
+        twoLetterContent = await processImageWithOCR(twoLetterImage);
+        console.log('OCR result for two-letter:', twoLetterContent);
+      }
+
+      const parsed = parseHintsFromContent(hintsContent.trim());
+      const twoLetterList = parseTwoLetterList(twoLetterContent.trim());
 
       if (!parsed) {
         toast({
           title: "Could not parse hints",
-          description: "We couldn't find a recognizable hints grid in the pasted text. Make sure it includes letter rows with word counts.",
+          description: "We couldn't find a recognizable hints grid. Make sure the image shows a clear table with letters and numbers.",
           variant: "destructive",
         });
         return;
@@ -158,13 +187,13 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
       setLastFetched(new Date().toLocaleString());
       toast({
         title: "Hints Loaded!",
-        description: `Loaded ${parsed.totalWords} total words${twoLetterList.length > 0 ? ` and ${twoLetterList.length} two-letter combos` : ''} from the pasted text.`,
+        description: `Loaded ${parsed.totalWords} total words${twoLetterList.length > 0 ? ` and ${twoLetterList.length} two-letter combos` : ''} from the ${hintsImage ? 'image' : 'text'}.`,
       });
     } catch (error) {
       console.error("Error parsing hints:", error);
       toast({
         title: "Error Loading Hints",
-        description: "Could not parse hints data. Please check the format and try again.",
+        description: "Could not process the hints data. Please check the image quality or text format and try again.",
         variant: "destructive",
       });
     } finally {
@@ -180,52 +209,143 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
           Load Hints Data
         </h2>
         <p className="text-slate-300">
-          Paste the hints table from the NYT Spelling Bee forum page
+          Upload images of the hints table and 2-letter list, or paste text as fallback
         </p>
       </div>
 
       <div className="space-y-4">
         <div className="grid grid-cols-1 gap-4">
+          {/* Main Hints Table */}
           <div>
             <label className="block text-sm font-medium text-slate-200 mb-2">
-              Main Hints Table (4+ letters)
+              Main Hints Table
             </label>
-            <Textarea
-              placeholder="Paste main hints table here (e.g., A 3 2 1...)"
-              value={hintsText}
-              onChange={(e) => setHintsText(e.target.value)}
-              className="min-h-[120px] font-mono text-sm bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-400"
-              rows={6}
-            />
+            <div className="space-y-2">
+              {/* Image Upload */}
+              <div className="border-2 border-dashed border-slate-600/60 rounded-lg p-4 text-center hover:border-slate-500/80 transition-colors duration-300 bg-slate-800/50">
+                <div className="flex items-center justify-center gap-3">
+                  <div className="p-2 rounded-full bg-slate-700/50">
+                    <Upload className="h-5 w-5 text-slate-300" />
+                  </div>
+                  <div className="text-left">
+                    <p className="text-sm font-medium text-slate-200">Upload hints table image</p>
+                    <p className="text-xs text-slate-400">Recommended for best results</p>
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setHintsImage(e.target.files?.[0] || null)}
+                    className="hidden"
+                    id="hints-image-upload"
+                  />
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => document.getElementById('hints-image-upload')?.click()}
+                    className="border-slate-600 bg-slate-800 text-slate-200 hover:bg-slate-700 hover:border-slate-500"
+                  >
+                    Browse
+                  </Button>
+                </div>
+                {hintsImage && (
+                  <div className="mt-3 flex items-center justify-center gap-2 text-sm text-slate-300">
+                    <ImageIcon className="h-4 w-4" />
+                    <span>{hintsImage.name}</span>
+                    <button
+                      onClick={() => setHintsImage(null)}
+                      className="p-1 bg-red-900/50 text-red-300 rounded-full hover:bg-red-800/60"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                )}
+              </div>
+              
+              {/* Text Fallback */}
+              <div className="text-center text-xs text-slate-400 py-2">or paste text as fallback</div>
+              <Textarea
+                placeholder="Paste main hints table here (e.g., A 3 2 1...)"
+                value={hintsText}
+                onChange={(e) => setHintsText(e.target.value)}
+                className="min-h-[80px] font-mono text-sm bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-400"
+                rows={4}
+              />
+            </div>
           </div>
+          
+          {/* Two Letter List */}
           <div>
             <label className="block text-sm font-medium text-slate-200 mb-2">
               Two Letter List (optional)
             </label>
-            <Textarea
-              placeholder="Paste 2-letter word list here (e.g., AL: 2, AN: 4, AV: 2 or AL 2 AN 4 AV 2)"
-              value={twoLetterText}
-              onChange={(e) => setTwoLetterText(e.target.value)}
-              className="min-h-[120px] font-mono text-sm bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-400"
-              rows={6}
-            />
+            <div className="space-y-2">
+              {/* Image Upload */}
+              <div className="border-2 border-dashed border-slate-600/60 rounded-lg p-4 text-center hover:border-slate-500/80 transition-colors duration-300 bg-slate-800/50">
+                <div className="flex items-center justify-center gap-3">
+                  <div className="p-2 rounded-full bg-slate-700/50">
+                    <Upload className="h-5 w-5 text-slate-300" />
+                  </div>
+                  <div className="text-left">
+                    <p className="text-sm font-medium text-slate-200">Upload 2-letter list image</p>
+                    <p className="text-xs text-slate-400">Optional enhancement</p>
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setTwoLetterImage(e.target.files?.[0] || null)}
+                    className="hidden"
+                    id="two-letter-image-upload"
+                  />
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => document.getElementById('two-letter-image-upload')?.click()}
+                    className="border-slate-600 bg-slate-800 text-slate-200 hover:bg-slate-700 hover:border-slate-500"
+                  >
+                    Browse
+                  </Button>
+                </div>
+                {twoLetterImage && (
+                  <div className="mt-3 flex items-center justify-center gap-2 text-sm text-slate-300">
+                    <ImageIcon className="h-4 w-4" />
+                    <span>{twoLetterImage.name}</span>
+                    <button
+                      onClick={() => setTwoLetterImage(null)}
+                      className="p-1 bg-red-900/50 text-red-300 rounded-full hover:bg-red-800/60"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                )}
+              </div>
+              
+              {/* Text Fallback */}
+              <div className="text-center text-xs text-slate-400 py-2">or paste text as fallback</div>
+              <Textarea
+                placeholder="Paste 2-letter word list here (e.g., AL: 2, AN: 4, AV: 2)"
+                value={twoLetterText}
+                onChange={(e) => setTwoLetterText(e.target.value)}
+                className="min-h-[80px] font-mono text-sm bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-400"
+                rows={4}
+              />
+            </div>
           </div>
         </div>
 
         <Button
           onClick={parseHints}
-          disabled={isLoading || !hintsText.trim()}
+          disabled={isLoading || (!hintsImage && !hintsText.trim())}
           className="w-full bg-blue-600 hover:bg-blue-700 text-white"
         >
           {isLoading ? (
             <>
               <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
-              Parsing Hints...
+              Processing...
             </>
           ) : (
             <>
               <Download className="h-4 w-4 mr-2" />
-              Parse Hints Data
+              Process Hints Data
             </>
           )}
         </Button>
