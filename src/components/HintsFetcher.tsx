@@ -13,7 +13,7 @@ interface HintsData {
 }
 
 interface HintsFetcherProps {
-  onHintsLoaded: (hintsData: HintsData, totalWords: number, twoLetterList: { combo: string; count: number }[]) => void;
+  onHintsLoaded: (hintsData: HintsData, totalWords: number, twoLetterList: { combo: string; count: number }[], pangrams: number) => void;
 }
 
 const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
@@ -66,15 +66,23 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
   // Parse hints data from page text (expects rows like "a: 2 4 2 - - - - 8")
   const parseHintsFromContent = (
     content: string
-  ): { hintsData: HintsData; totalWords: number } | null => {
+  ): { hintsData: HintsData; totalWords: number; pangrams: number } | null => {
     try {
       const hintsData: HintsData = {};
       let totalWords = 0;
+      let pangrams = 0;
 
       const lines = content.split("\n").map((l) => l.trim());
 
       for (const raw of lines) {
         const line = raw.replace(/\u00A0/g, " ");
+        
+        // Parse pangram count from "WORDS: 50, POINTS: 238, PANGRAMS: 1"
+        const pangramMatch = line.match(/PANGRAMS?:\s*(\d+)/i);
+        if (pangramMatch) {
+          pangrams = parseInt(pangramMatch[1], 10);
+          continue;
+        }
         
         // Match: single letter followed by colon, then tab/space separated values
         // Example: "a:	2	4	2	-	-	-	-	8"
@@ -106,7 +114,7 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
         return null; // don't fabricate data; signal parse failure
       }
 
-      return { hintsData, totalWords };
+      return { hintsData, totalWords, pangrams };
     } catch (error) {
       console.error("Error parsing hints data:", error);
       return null;
@@ -138,7 +146,7 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
         return;
       }
 
-      onHintsLoaded(parsed.hintsData, parsed.totalWords, twoLetterList);
+      onHintsLoaded(parsed.hintsData, parsed.totalWords, twoLetterList, parsed.pangrams);
       setLastFetched(new Date().toLocaleString());
       toast({
         title: "Hints Loaded!",

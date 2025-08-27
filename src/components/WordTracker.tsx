@@ -60,10 +60,13 @@ const WordTracker = () => {
     });
   }, [twoLetterList, foundWords]);
 
-  const handleHintsLoaded = (newHintsData: HintsData, totalWords: number, newTwoLetterList: { combo: string; count: number }[]) => {
+  const [pangrams, setPangrams] = useState(0);
+
+  const handleHintsLoaded = (newHintsData: HintsData, totalWords: number, newTwoLetterList: { combo: string; count: number }[], pangramCount: number) => {
     setHintsData(newHintsData);
     setTotalPossibleWords(totalWords);
     setTwoLetterList(newTwoLetterList);
+    setPangrams(pangramCount);
     setHasLoadedHints(true);
     setFoundWords(new Set()); // Reset found words when loading new hints
   };
@@ -94,6 +97,7 @@ const WordTracker = () => {
     setHintsData({});
     setTotalPossibleWords(0);
     setTwoLetterList([]);
+    setPangrams(0);
     setHasLoadedHints(false);
   };
 
@@ -136,6 +140,11 @@ const WordTracker = () => {
               <div className="text-center">
                 <div className="text-lg sm:text-2xl font-bold text-slate-300">{totalPossibleWords - foundWords.size}</div>
                 <div className="text-xs sm:text-sm text-slate-400">Remaining</div>
+              </div>
+              <div className="h-6 sm:h-8 w-px bg-slate-600"></div>
+              <div className="text-center">
+                <div className="text-lg sm:text-2xl font-bold text-yellow-400">{pangrams}</div>
+                <div className="text-xs sm:text-sm text-slate-400">Pangrams</div>
               </div>
               <div className="h-6 sm:h-8 w-px bg-slate-600"></div>
               <div className="text-center">
