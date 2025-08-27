@@ -27,31 +27,39 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
     if (!text.trim()) return [];
     
     const results: { combo: string; count: number }[] = [];
-    const lines = text.split('\n').map(line => line.trim());
     
-    for (const line of lines) {
-      // Try to match patterns like "AB: 5" or "AB 5" or "AB-5"
-      const match = line.match(/([A-Z]{2})[:\s\-]+(\d+)/i);
-      if (match) {
-        const combo = match[1].toUpperCase();
-        const count = parseInt(match[2], 10);
-        if (combo.length === 2 && count > 0) {
-          results.push({ combo, count });
-        }
-      } else {
-        // Fallback: just extract 2-letter combos without counts
-        const words = line.split(/[\s,]+/)
-          .map(word => word.replace(/[^A-Za-z]/g, '').toUpperCase())
-          .filter(word => word.length === 2 && /^[A-Z]+$/.test(word));
-        
-        words.forEach(combo => {
-          if (!results.find(r => r.combo === combo)) {
-            results.push({ combo, count: 0 }); // No count available
-          }
-        });
+    // Split by both newlines and common separators
+    const allText = text.replace(/[\n\r]+/g, ' ');
+    
+    // Look for patterns like "AB: 5", "AB 5", "AB-5", "AB(5)", or just "AB"
+    const patterns = [
+      /([A-Z]{2})[:\s\-\(]+(\d+)[\)]*(?:\s|$|,)/gi,  // AB: 5, AB 5, AB-5, AB(5)
+      /([A-Z]{2})(?:\s|$|,)/gi  // Just AB (fallback)
+    ];
+    
+    // Try the first pattern (with numbers)
+    let match;
+    const regex1 = /([A-Z]{2})[:\s\-\(]+(\d+)[\)]*(?:\s|$|,)/gi;
+    while ((match = regex1.exec(allText)) !== null) {
+      const combo = match[1].toUpperCase();
+      const count = parseInt(match[2], 10);
+      if (combo.length === 2 && count > 0) {
+        results.push({ combo, count });
       }
     }
     
+    // If no matches with numbers, try just extracting 2-letter combos
+    if (results.length === 0) {
+      const regex2 = /([A-Z]{2})(?:\s|$|,)/gi;
+      while ((match = regex2.exec(allText)) !== null) {
+        const combo = match[1].toUpperCase();
+        if (combo.length === 2 && !results.find(r => r.combo === combo)) {
+          results.push({ combo, count: 1 }); // Default count
+        }
+      }
+    }
+    
+    console.log('Parsed 2-letter combos:', results); // Debug log
     return results.sort((a, b) => a.combo.localeCompare(b.combo));
   };
   // Parse hints data from page text (expects rows like "A 3 2 1 ...")
@@ -169,7 +177,7 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
               Two Letter List (optional)
             </label>
             <Textarea
-              placeholder="Paste 2-letter word list here (e.g., AB, AC, AD...)"
+              placeholder="Paste 2-letter word list here (e.g., AL: 2, AN: 4, AV: 2 or AL 2 AN 4 AV 2)"
               value={twoLetterText}
               onChange={(e) => setTwoLetterText(e.target.value)}
               className="min-h-[120px] font-mono text-sm bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-400"
