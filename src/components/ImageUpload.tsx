@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Upload, X, Image as ImageIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { createWorker } from 'tesseract.js';
 
 interface ImageUploadProps {
   onWordsExtracted: (words: string[]) => void;
@@ -32,23 +33,62 @@ const ImageUpload = ({ onWordsExtracted }: ImageUploadProps) => {
 
     setUploadedFiles(prev => [...prev, ...newFiles]);
     
-    // Simulate OCR processing for demo
-    setIsProcessing(true);
-    setTimeout(() => {
-      const mockWords = [
-        'QUEEN', 'BUZZ', 'HIVE', 'HONEY', 'POLLEN', 'SWARM', 'NECTAR',
-        'FLOWER', 'GARDEN', 'SWEET', 'GOLDEN', 'FLYING'
-      ].slice(0, Math.floor(Math.random() * 8) + 3);
-      
-      onWordsExtracted(mockWords);
-      setIsProcessing(false);
-      
-      toast({
-        title: "Words extracted!",
-        description: `Found ${mockWords.length} words from your images.`,
-      });
-    }, 2000);
+    // Process images with OCR
+    processImagesWithOCR(newFiles);
   }, [onWordsExtracted, toast]);
+
+  const processImagesWithOCR = async (files: File[]) => {
+    setIsProcessing(true);
+    const allWords: string[] = [];
+
+    try {
+      const worker = await createWorker('eng');
+      
+      for (const file of files) {
+        try {
+          const { data: { text } } = await worker.recognize(file);
+          
+          // Extract words that are likely spelling bee words (4+ letters, all caps)
+          const words = text
+            .split(/\s+/)
+            .map(word => word.replace(/[^A-Za-z]/g, '').toUpperCase())
+            .filter(word => word.length >= 4 && /^[A-Z]+$/.test(word));
+          
+          allWords.push(...words);
+        } catch (error) {
+          console.error('Error processing image:', file.name, error);
+        }
+      }
+      
+      await worker.terminate();
+      
+      // Remove duplicates
+      const uniqueWords = Array.from(new Set(allWords));
+      
+      if (uniqueWords.length > 0) {
+        onWordsExtracted(uniqueWords);
+        toast({
+          title: "Words extracted!",
+          description: `Found ${uniqueWords.length} words from your images.`,
+        });
+      } else {
+        toast({
+          title: "No words found",
+          description: "Could not extract any valid words from the images.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('OCR processing error:', error);
+      toast({
+        title: "Processing failed",
+        description: "Error extracting text from images. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   const removeFile = (index: number) => {
     setUploadedFiles(prev => prev.filter((_, i) => i !== index));
