@@ -62,8 +62,8 @@ const HintsGrid = ({ hintsData, foundWords, twoLetterCombos }: HintsGridProps) =
       return letter; // Fallback to just the letter if no combos
     }
     
-    // Calculate remaining counts for each combo
-    const activeCombos = combosForLetter
+    // Calculate remaining counts for each combo and show all of them
+    const allCombos = combosForLetter
       .map(({ combo, count }) => {
         const foundWordsWithCombo = Array.from(foundWords).filter(word =>
           word.length >= 2 && word.substring(0, 2) === combo
@@ -71,12 +71,10 @@ const HintsGrid = ({ hintsData, foundWords, twoLetterCombos }: HintsGridProps) =
         
         const remainingCount = Math.max(0, count - foundWordsWithCombo);
         
-        return { combo, remainingCount };
-      })
-      .filter(({ remainingCount }) => remainingCount > 0) // Only show combos with remaining words
-      .map(({ combo, remainingCount }) => `${combo}(${remainingCount})`);
+        return `${combo}(${remainingCount})`;
+      });
     
-    return activeCombos.length > 0 ? activeCombos.join('/') : letter;
+    return allCombos.join('/');
   };
 
   const lengthColumns = getLengthColumns();
