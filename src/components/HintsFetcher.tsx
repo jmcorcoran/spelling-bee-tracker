@@ -74,107 +74,116 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
       // Split and clean lines
       const lines = content
         .split("\n")
-        .map((l) => l.replace(/\u00A0/g, ' ').trim())
+        .map((l) => l.replace(/\u00A0/g, ' ').replace(/[•·▪]+/g, ' ').trim())
         .filter(Boolean);
 
-      console.log('All OCR lines:', lines);
+      console.log('All pasted lines:', lines);
 
-      // Find the header row with column lengths
+      // Helper: detect a valid letter row like "A 3 2 1" or "B: 1 0 2" etc.
+      const parseRow = (line: string): { letter: string; counts: number[] } | null => {
+        // Avoid obvious non-row lines early
+        if (/^(TOTAL|POINT|PANGRAM|RANK|SCORE|PUZZLE|WORDS|HINT|STATS)/i.test(line)) return null;
+
+        // Accept forms like: A 3 2 1 | A: 3 2 1 | A- 3 2 | A. 3 2
+        const match = line.match(/^([A-Z])(?:\s*[:.\-])?\s+(.+)$/);
+        if (!match) return null;
+        const letter = match[1].toUpperCase();
+        const numbers = (match[2].match(/\d+/g) || []).map(Number);
+        if (numbers.length === 0) return null;
+
+        // Drop trailing total if present
+        let counts = numbers;
+        if (counts.length > 1) {
+          const last = counts[counts.length - 1];
+          const sumRest = counts.slice(0, -1).reduce((a, b) => a + b, 0);
+          if (last === sumRest) counts = counts.slice(0, -1);
+        }
+        return { letter, counts };
+      };
+
+      // Try to find a header row with explicit lengths
       let columnLengths: number[] = [];
+      let headerIndex = -1;
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
-        
-        // Look for a line that starts with "LETTER" or just contains numbers 4-12
-        if (/^LETTER/i.test(line)) {
-          const nums = (line.match(/\d+/g) || []).map(Number).filter(n => n >= 4 && n <= 12);
+
+        if (/^(LETTER|LETTERS|LENGTH)/i.test(line)) {
+          const nums = (line.match(/\d+/g) || [])
+            .map(Number)
+            .filter((n) => n >= 3 && n <= 20);
           if (nums.length >= 2) {
             columnLengths = nums;
-            console.log('Found header with LETTER:', columnLengths);
+            headerIndex = i;
+            console.log('Found header w/ label:', columnLengths);
             break;
           }
         }
-        
-        // Or look for a line that's just numbers (like "4 5 6 7 8 9 10")
+
         const tokens = line.split(/\s+/);
-        if (tokens.length >= 3 && tokens.every(t => /^\d+$/.test(t))) {
-          const nums = tokens.map(Number).filter(n => n >= 4 && n <= 12);
+        if (tokens.length >= 2 && tokens.every((t) => /^\d+$/.test(t))) {
+          const nums = tokens.map(Number).filter((n) => n >= 3 && n <= 20);
           if (nums.length >= 2) {
             columnLengths = nums;
+            headerIndex = i;
             console.log('Found numeric header:', columnLengths);
             break;
           }
         }
       }
 
-      // If no header found, make an educated guess
-      if (columnLengths.length === 0) {
-        console.log('No header found, using default columns');
-        columnLengths = [4, 5, 6, 7, 8, 9, 10, 11, 12];
+      // Collect letter rows (prefer the contiguous block after header if present)
+      const rows: { letter: string; counts: number[] }[] = [];
+      const startIdx = headerIndex >= 0 ? headerIndex + 1 : 0;
+
+      if (headerIndex >= 0) {
+        for (let i = startIdx; i < lines.length; i++) {
+          const line = lines[i];
+          if (/^TOTAL/i.test(line)) break; // stop at totals
+          const row = parseRow(line);
+          if (!row) {
+            // If we've already started collecting rows, stop when the block ends
+            if (rows.length > 0) break;
+            continue;
+          }
+          rows.push(row);
+        }
+      } else {
+        // No explicit header: accept any valid letter rows anywhere
+        for (const line of lines) {
+          const row = parseRow(line);
+          if (row) rows.push(row);
+        }
       }
 
-      // Parse letter rows
-      for (const line of lines) {
-        // Skip header, total, or empty lines - be more aggressive about total detection
-        if (/^LETTER/i.test(line) || 
-            /^TOTAL/i.test(line) || 
-            /^\s*TOTAL/i.test(line) ||
-            /TOTAL\s*$/i.test(line) ||
-            !/^[A-Z]/.test(line)) {
-          console.log(`Skipping line: "${line}"`);
-          continue;
-        }
+      if (rows.length === 0) {
+        console.log('No letter rows found');
+        return null;
+      }
 
-        // Must start with a single letter
-        const firstChar = line.charAt(0).toUpperCase();
-        if (!/[A-Z]/.test(firstChar)) {
-          console.log(`Skipping non-letter line: "${line}"`);
-          continue;
-        }
+      // If no header, infer lengths from first row assuming 4+ letters (Spelling Bee)
+      if (columnLengths.length === 0) {
+        const countLen = rows[0].counts.length;
+        columnLengths = Array.from({ length: countLen }, (_, i) => 4 + i);
+        console.log('Inferred column lengths:', columnLengths);
+      }
 
-        // Get the rest of the line and extract all numbers
-        const restOfLine = line.slice(1);
-        const numbers = (restOfLine.match(/\d+/g) || []).map(Number);
-        
-        console.log(`Letter ${firstChar}: found numbers [${numbers.join(', ')}]`);
-
-        if (numbers.length === 0) continue;
-
-        // Remove the last number if it looks like a row total
-        let counts = numbers;
-        if (numbers.length > 1) {
-          const possibleTotal = numbers[numbers.length - 1];
-          const sumOfRest = numbers.slice(0, -1).reduce((sum, n) => sum + n, 0);
-          if (possibleTotal === sumOfRest) {
-            counts = numbers.slice(0, -1); // Remove the total
-            console.log(`  Removed row total ${possibleTotal}, using [${counts.join(', ')}]`);
-          }
-        }
-
-        // Map counts to ALL column lengths (don't limit to just a few)
-        hintsData[firstChar] = {};
+      // Map rows into hintsData
+      for (const { letter, counts } of rows) {
+        hintsData[letter] = {};
         for (let idx = 0; idx < Math.min(counts.length, columnLengths.length); idx++) {
           const count = counts[idx];
           const length = columnLengths[idx];
           if (count > 0) {
-            hintsData[firstChar][length] = count;
+            hintsData[letter][length] = (hintsData[letter][length] || 0) + count;
             totalWords += count;
-            console.log(`  Mapped ${count} words of length ${length}`);
           }
-        }
-        
-        // Warn if we have more counts than columns
-        if (counts.length > columnLengths.length) {
-          console.log(`  Warning: Row ${firstChar} has ${counts.length} counts but only ${columnLengths.length} columns defined`);
         }
       }
 
       console.log('Final parsed data:', hintsData);
-      console.log('Total words:', totalWords);
+      console.log('Total words (computed):', totalWords);
 
-      if (Object.keys(hintsData).length === 0) {
-        return null;
-      }
-
+      if (Object.keys(hintsData).length === 0) return null;
       return { hintsData, totalWords };
     } catch (error) {
       console.error('Error parsing hints data:', error);
