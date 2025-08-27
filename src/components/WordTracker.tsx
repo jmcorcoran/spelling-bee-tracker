@@ -20,6 +20,7 @@ const WordTracker = () => {
   const [totalPossibleWords, setTotalPossibleWords] = useState(0);
   const [hasLoadedHints, setHasLoadedHints] = useState(false);
   const [manualWord, setManualWord] = useState('');
+  const [twoLetterList, setTwoLetterList] = useState<string[]>([]);
 
   const remainingHintsData: HintsData = useMemo(() => {
     const remaining: HintsData = {};
@@ -44,9 +45,10 @@ const WordTracker = () => {
     return remaining;
   }, [hintsData, foundWords]);
 
-  const handleHintsLoaded = (newHintsData: HintsData, totalWords: number) => {
+  const handleHintsLoaded = (newHintsData: HintsData, totalWords: number, newTwoLetterList: string[]) => {
     setHintsData(newHintsData);
     setTotalPossibleWords(totalWords);
+    setTwoLetterList(newTwoLetterList);
     setHasLoadedHints(true);
     setFoundWords(new Set()); // Reset found words when loading new hints
   };
@@ -76,6 +78,7 @@ const WordTracker = () => {
     setFoundWords(new Set());
     setHintsData({});
     setTotalPossibleWords(0);
+    setTwoLetterList([]);
     setHasLoadedHints(false);
   };
 
@@ -93,44 +96,44 @@ const WordTracker = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800">
-      <div className="container max-w-6xl mx-auto p-6">
+      <div className="container max-w-4xl mx-auto p-4 sm:p-6">
         {/* Header */}
-        <div className="mb-8 text-center">
-          <div className="inline-flex items-center gap-3 mb-4">
-            <div className="p-3 rounded-full bg-gradient-to-br from-blue-600 to-purple-600">
-              <Target className="h-6 w-6 text-white" />
+        <div className="mb-6 sm:mb-8 text-center">
+          <div className="inline-flex items-center gap-2 sm:gap-3 mb-4">
+            <div className="p-2 sm:p-3 rounded-full bg-gradient-to-br from-blue-600 to-purple-600">
+              <Target className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
             </div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-white to-blue-300 bg-clip-text text-transparent">
+            <h1 className="text-2xl sm:text-4xl font-bold bg-gradient-to-r from-white to-blue-300 bg-clip-text text-transparent">
               Spelling Bee Tracker
             </h1>
           </div>
-          <p className="text-lg text-slate-300 mb-6">
+          <p className="text-sm sm:text-lg text-slate-300 mb-4 sm:mb-6 px-4">
             Load today's hints and track your progress with image uploads
           </p>
           
           {hasLoadedHints && (
-            <Card className="inline-flex items-center gap-6 p-4 bg-slate-800/80 border-slate-700/50 backdrop-blur-sm">
+            <Card className="inline-flex items-center gap-3 sm:gap-6 p-3 sm:p-4 bg-slate-800/80 border-slate-700/50 backdrop-blur-sm mx-4 sm:mx-0">
               <div className="text-center">
-                <div className="text-2xl font-bold text-white">{foundWords.size}</div>
-                <div className="text-sm text-slate-400">Words Found</div>
+                <div className="text-lg sm:text-2xl font-bold text-white">{foundWords.size}</div>
+                <div className="text-xs sm:text-sm text-slate-400">Words Found</div>
               </div>
-              <div className="h-8 w-px bg-slate-600"></div>
+              <div className="h-6 sm:h-8 w-px bg-slate-600"></div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-slate-300">{totalPossibleWords - foundWords.size}</div>
-                <div className="text-sm text-slate-400">Remaining</div>
+                <div className="text-lg sm:text-2xl font-bold text-slate-300">{totalPossibleWords - foundWords.size}</div>
+                <div className="text-xs sm:text-sm text-slate-400">Remaining</div>
               </div>
-              <div className="h-8 w-px bg-slate-600"></div>
+              <div className="h-6 sm:h-8 w-px bg-slate-600"></div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-blue-400">{progressPercentage}%</div>
-                <div className="text-sm text-slate-400">Complete</div>
+                <div className="text-lg sm:text-2xl font-bold text-blue-400">{progressPercentage}%</div>
+                <div className="text-xs sm:text-sm text-slate-400">Complete</div>
               </div>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={resetProgress}
-                className="ml-4 border-slate-600 bg-slate-700 text-slate-200 hover:bg-slate-600 hover:border-slate-500"
+                className="ml-2 sm:ml-4 border-slate-600 bg-slate-700 text-slate-200 hover:bg-slate-600 hover:border-slate-500 text-xs sm:text-sm"
               >
-                <RotateCcw className="h-4 w-4 mr-2" />
+                <RotateCcw className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                 Reset
               </Button>
             </Card>
@@ -139,7 +142,7 @@ const WordTracker = () => {
 
         {/* Hints Fetcher - Show this first if no hints loaded */}
         {!hasLoadedHints && (
-          <div className="mb-8">
+          <div className="mb-6 sm:mb-8">
             <HintsFetcher onHintsLoaded={handleHintsLoaded} />
           </div>
         )}
@@ -148,18 +151,37 @@ const WordTracker = () => {
         {hasLoadedHints && (
           <>
             {/* Image Upload - Compact version above table */}
-            <div className="mb-6">
+            <div className="mb-4 sm:mb-6">
               <ImageUpload onWordsExtracted={handleWordsFound} />
             </div>
 
-            <div className="grid lg:grid-cols-2 gap-8">
+            <div className="space-y-6">
               {/* Hints Grid */}
               <div>
                 <HintsGrid hintsData={remainingHintsData} foundWords={foundWords} />
 
+                {/* Two Letter List */}
+                {twoLetterList.length > 0 && (
+                  <Card className="mt-4 sm:mt-6 p-3 sm:p-4 bg-slate-800/60 border-slate-700/50">
+                    <h3 className="font-semibold text-white mb-3 text-sm sm:text-base">
+                      Two Letter Words ({twoLetterList.length})
+                    </h3>
+                    <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-2">
+                      {twoLetterList.map((word, index) => (
+                        <div 
+                          key={index} 
+                          className="bg-slate-700/60 text-slate-200 px-2 py-1 rounded text-center text-xs sm:text-sm border border-slate-600/50"
+                        >
+                          {word}
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+                )}
+
                 {/* Manual Word Input */}
-                <Card className="mt-6 p-4 bg-slate-800/60 border-slate-700/50">
-                  <h3 className="font-semibold text-white mb-3">Add Word Manually</h3>
+                <Card className="mt-4 sm:mt-6 p-3 sm:p-4 bg-slate-800/60 border-slate-700/50">
+                  <h3 className="font-semibold text-white mb-3 text-sm sm:text-base">Add Word Manually</h3>
                   <div className="flex gap-2">
                     <Input
                       type="text"
@@ -167,34 +189,34 @@ const WordTracker = () => {
                       value={manualWord}
                       onChange={(e) => setManualWord(e.target.value)}
                       onKeyPress={handleManualWordKeyPress}
-                      className="flex-1 bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-400 focus:border-blue-500"
+                      className="flex-1 bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-400 focus:border-blue-500 text-sm sm:text-base"
                     />
                     <Button
                       onClick={addManualWord}
                       size="sm"
                       className="bg-blue-600 hover:bg-blue-700 text-white"
                     >
-                      <Plus className="h-4 w-4" />
+                      <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
                     </Button>
                   </div>
                 </Card>
 
                 {/* Found Words Display */}
                 {foundWords.size > 0 && (
-                  <Card className="mt-6 p-4 bg-slate-800/60 border-slate-700/50">
-                    <h3 className="font-semibold text-white mb-3">Found Words ({foundWords.size})</h3>
+                  <Card className="mt-4 sm:mt-6 p-3 sm:p-4 bg-slate-800/60 border-slate-700/50">
+                    <h3 className="font-semibold text-white mb-3 text-sm sm:text-base">Found Words ({foundWords.size})</h3>
                     <div className="flex flex-wrap gap-2">
                       {Array.from(foundWords).sort().map(word => (
                         <div 
                           key={word} 
-                          className="flex items-center gap-1 bg-slate-700/60 text-slate-200 px-3 py-1 rounded-full text-sm border border-slate-600/50"
+                          className="flex items-center gap-1 bg-slate-700/60 text-slate-200 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm border border-slate-600/50"
                         >
                           <span>{word}</span>
                           <button
                             onClick={() => removeWord(word)}
                             className="ml-1 p-0.5 hover:bg-red-600/50 rounded-full transition-colors"
                           >
-                            <X className="h-3 w-3 text-slate-400 hover:text-red-300" />
+                            <X className="h-2 w-2 sm:h-3 sm:w-3 text-slate-400 hover:text-red-300" />
                           </button>
                         </div>
                       ))}
@@ -205,14 +227,14 @@ const WordTracker = () => {
             </div>
 
             {/* Progress Bar */}
-            <Card className="mt-8 p-6 bg-slate-800/60 border-slate-700/50">
+            <Card className="mt-6 sm:mt-8 p-4 sm:p-6 bg-slate-800/60 border-slate-700/50">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-white">Overall Progress</h3>
-                <span className="text-sm text-slate-400">{foundWords.size} of {totalPossibleWords} words</span>
+                <h3 className="font-semibold text-white text-sm sm:text-base">Overall Progress</h3>
+                <span className="text-xs sm:text-sm text-slate-400">{foundWords.size} of {totalPossibleWords} words</span>
               </div>
-              <div className="w-full bg-slate-700 rounded-full h-3">
+              <div className="w-full bg-slate-700 rounded-full h-2 sm:h-3">
                 <div 
-                  className="bg-gradient-to-r from-blue-500 to-purple-500 h-3 rounded-full transition-all duration-500 ease-out"
+                  className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 sm:h-3 rounded-full transition-all duration-500 ease-out"
                   style={{ width: `${progressPercentage}%` }}
                 />
               </div>

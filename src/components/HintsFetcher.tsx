@@ -13,15 +13,24 @@ interface HintsData {
 }
 
 interface HintsFetcherProps {
-  onHintsLoaded: (hintsData: HintsData, totalWords: number) => void;
+  onHintsLoaded: (hintsData: HintsData, totalWords: number, twoLetterList: string[]) => void;
 }
 
 const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
   const [hintsText, setHintsText] = useState('');
+  const [twoLetterText, setTwoLetterText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [lastFetched, setLastFetched] = useState<string | null>(null);
   const { toast } = useToast();
 
+  const parseTwoLetterList = (text: string): string[] => {
+    if (!text.trim()) return [];
+    
+    return text
+      .split(/[\s,]+/)
+      .map(word => word.replace(/[^A-Za-z]/g, '').toUpperCase())
+      .filter(word => word.length === 2 && /^[A-Z]+$/.test(word));
+  };
   // Parse hints data from page text (expects rows like "A 3 2 1 ...")
   const parseHintsFromContent = (
     content: string
@@ -77,6 +86,7 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
 
     try {
       const parsed = parseHintsFromContent(hintsText.trim());
+      const twoLetterList = parseTwoLetterList(twoLetterText.trim());
 
       if (!parsed) {
         toast({
@@ -87,11 +97,11 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
         return;
       }
 
-      onHintsLoaded(parsed.hintsData, parsed.totalWords);
+      onHintsLoaded(parsed.hintsData, parsed.totalWords, twoLetterList);
       setLastFetched(new Date().toLocaleString());
       toast({
         title: "Hints Loaded!",
-        description: `Loaded ${parsed.totalWords} total words from the pasted text.`,
+        description: `Loaded ${parsed.totalWords} total words${twoLetterList.length > 0 ? ` and ${twoLetterList.length} two-letter words` : ''} from the pasted text.`,
       });
     } catch (error) {
       console.error("Error parsing hints:", error);
@@ -118,7 +128,7 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
       </div>
 
       <div className="space-y-4">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4">
           <div>
             <label className="block text-sm font-medium text-slate-200 mb-2">
               Main Hints Table (4+ letters)
@@ -137,6 +147,8 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
             </label>
             <Textarea
               placeholder="Paste 2-letter word list here (e.g., AB, AC, AD...)"
+              value={twoLetterText}
+              onChange={(e) => setTwoLetterText(e.target.value)}
               className="min-h-[120px] font-mono text-sm bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-400"
               rows={6}
             />
