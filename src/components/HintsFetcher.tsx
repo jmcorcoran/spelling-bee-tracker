@@ -13,7 +13,7 @@ interface HintsData {
 }
 
 interface HintsFetcherProps {
-  onHintsLoaded: (hintsData: HintsData, totalWords: number, twoLetterList: string[]) => void;
+  onHintsLoaded: (hintsData: HintsData, totalWords: number, twoLetterList: { combo: string; count: number }[]) => void;
 }
 
 const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
@@ -23,13 +23,36 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
   const [lastFetched, setLastFetched] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const parseTwoLetterList = (text: string): string[] => {
+  const parseTwoLetterList = (text: string): { combo: string; count: number }[] => {
     if (!text.trim()) return [];
     
-    return text
-      .split(/[\s,]+/)
-      .map(word => word.replace(/[^A-Za-z]/g, '').toUpperCase())
-      .filter(word => word.length === 2 && /^[A-Z]+$/.test(word));
+    const results: { combo: string; count: number }[] = [];
+    const lines = text.split('\n').map(line => line.trim());
+    
+    for (const line of lines) {
+      // Try to match patterns like "AB: 5" or "AB 5" or "AB-5"
+      const match = line.match(/([A-Z]{2})[:\s\-]+(\d+)/i);
+      if (match) {
+        const combo = match[1].toUpperCase();
+        const count = parseInt(match[2], 10);
+        if (combo.length === 2 && count > 0) {
+          results.push({ combo, count });
+        }
+      } else {
+        // Fallback: just extract 2-letter combos without counts
+        const words = line.split(/[\s,]+/)
+          .map(word => word.replace(/[^A-Za-z]/g, '').toUpperCase())
+          .filter(word => word.length === 2 && /^[A-Z]+$/.test(word));
+        
+        words.forEach(combo => {
+          if (!results.find(r => r.combo === combo)) {
+            results.push({ combo, count: 0 }); // No count available
+          }
+        });
+      }
+    }
+    
+    return results.sort((a, b) => a.combo.localeCompare(b.combo));
   };
   // Parse hints data from page text (expects rows like "A 3 2 1 ...")
   const parseHintsFromContent = (
@@ -101,7 +124,7 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
       setLastFetched(new Date().toLocaleString());
       toast({
         title: "Hints Loaded!",
-        description: `Loaded ${parsed.totalWords} total words${twoLetterList.length > 0 ? ` and ${twoLetterList.length} two-letter words` : ''} from the pasted text.`,
+        description: `Loaded ${parsed.totalWords} total words${twoLetterList.length > 0 ? ` and ${twoLetterList.length} two-letter combos` : ''} from the pasted text.`,
       });
     } catch (error) {
       console.error("Error parsing hints:", error);
@@ -191,7 +214,7 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
                 <li>• Each line should start with a letter (A, B, C, etc.)</li>
                 <li>• Followed by word counts for different lengths</li>
                 <li>• Example: "A 3 2 1" means 3 four-letter words, 2 five-letter words, 1 six-letter word</li>
-                <li>• Two-letter list is optional and for reference only</li>
+                <li>• Two-letter list format: "AB: 5" or "AB 5" (combo followed by count)</li>
               </ul>
             </div>
           </div>

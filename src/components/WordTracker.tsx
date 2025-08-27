@@ -20,7 +20,7 @@ const WordTracker = () => {
   const [totalPossibleWords, setTotalPossibleWords] = useState(0);
   const [hasLoadedHints, setHasLoadedHints] = useState(false);
   const [manualWord, setManualWord] = useState('');
-  const [twoLetterList, setTwoLetterList] = useState<string[]>([]);
+  const [twoLetterList, setTwoLetterList] = useState<{ combo: string; count: number }[]>([]);
 
   const remainingHintsData: HintsData = useMemo(() => {
     const remaining: HintsData = {};
@@ -45,7 +45,22 @@ const WordTracker = () => {
     return remaining;
   }, [hintsData, foundWords]);
 
-  const handleHintsLoaded = (newHintsData: HintsData, totalWords: number, newTwoLetterList: string[]) => {
+  // Calculate remaining counts for two-letter combos
+  const remainingTwoLetterCounts = useMemo(() => {
+    return twoLetterList.map(({ combo, count }) => {
+      const foundWordsWithCombo = Array.from(foundWords).filter(word =>
+        word.length >= 2 && word.substring(0, 2) === combo
+      ).length;
+      
+      return {
+        combo,
+        originalCount: count,
+        remainingCount: Math.max(0, count - foundWordsWithCombo)
+      };
+    });
+  }, [twoLetterList, foundWords]);
+
+  const handleHintsLoaded = (newHintsData: HintsData, totalWords: number, newTwoLetterList: { combo: string; count: number }[]) => {
     setHintsData(newHintsData);
     setTotalPossibleWords(totalWords);
     setTwoLetterList(newTwoLetterList);
@@ -164,15 +179,22 @@ const WordTracker = () => {
                 {twoLetterList.length > 0 && (
                   <Card className="mt-4 sm:mt-6 p-3 sm:p-4 bg-slate-800/60 border-slate-700/50">
                     <h3 className="font-semibold text-white mb-3 text-sm sm:text-base">
-                      Two Letter Words ({twoLetterList.length})
+                      Two Letter Combos ({twoLetterList.length})
                     </h3>
-                    <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-2">
-                      {twoLetterList.map((word, index) => (
+                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
+                      {remainingTwoLetterCounts.map(({ combo, originalCount, remainingCount }, index) => (
                         <div 
                           key={index} 
-                          className="bg-slate-700/60 text-slate-200 px-2 py-1 rounded text-center text-xs sm:text-sm border border-slate-600/50"
+                          className={`bg-slate-700/60 text-slate-200 px-2 py-1 rounded text-center text-xs sm:text-sm border border-slate-600/50 ${
+                            remainingCount === 0 ? 'opacity-50 line-through' : ''
+                          }`}
                         >
-                          {word}
+                          <div className="font-mono">{combo}</div>
+                          {originalCount > 0 && (
+                            <div className="text-xs text-slate-400">
+                              {remainingCount}/{originalCount}
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
