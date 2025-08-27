@@ -173,17 +173,13 @@ const WordTracker = () => {
             <div className="space-y-6">
               {/* Hints Grid */}
               <div>
-                <HintsGrid 
-                  hintsData={remainingHintsData} 
-                  foundWords={foundWords}
-                  twoLetterCombos={twoLetterList}
-                />
+                <HintsGrid hintsData={remainingHintsData} foundWords={foundWords} />
 
                 {/* Two Letter List */}
                 {twoLetterList.length > 0 && (
                   <Card className="mt-4 sm:mt-6 p-3 sm:p-4 bg-slate-800/60 border-slate-700/50">
                     <h3 className="font-semibold text-white mb-3 text-sm sm:text-base">
-                      Two Letter Combos ({twoLetterList.length})
+                      Two Letter Combos ({remainingTwoLetterCounts.reduce((sum, item) => sum + item.remainingCount, 0)} remaining)
                     </h3>
                     <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
                       {remainingTwoLetterCounts.map(({ combo, originalCount, remainingCount }, index) => (
@@ -193,7 +189,7 @@ const WordTracker = () => {
                             remainingCount === 0 ? 'opacity-50 line-through' : ''
                           }`}
                         >
-                          <div className="font-mono">{combo}</div>
+                          <div className="font-mono font-semibold">{combo}</div>
                           {originalCount > 0 && (
                             <div className="text-xs text-slate-400">
                               {remainingCount}/{originalCount}

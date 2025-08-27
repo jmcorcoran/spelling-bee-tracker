@@ -10,10 +10,9 @@ interface HintsData {
 interface HintsGridProps {
   hintsData: HintsData;
   foundWords: Set<string>;
-  twoLetterCombos: { combo: string; count: number }[];
 }
 
-const HintsGrid = ({ hintsData, foundWords, twoLetterCombos }: HintsGridProps) => {
+const HintsGrid = ({ hintsData, foundWords }: HintsGridProps) => {
   const letters = Object.keys(hintsData).sort();
   const maxLength = Math.max(...Object.values(hintsData).flatMap(letterData => 
     Object.keys(letterData).map(Number)
@@ -52,31 +51,6 @@ const HintsGrid = ({ hintsData, foundWords, twoLetterCombos }: HintsGridProps) =
     return letters.reduce((sum, letter) => sum + getCountForCell(letter, length), 0);
   };
 
-  const getRowLabel = (letter: string) => {
-    // Get all 2-letter combos that start with this letter
-    const combosForLetter = twoLetterCombos.filter(({ combo }) => 
-      combo.startsWith(letter)
-    );
-    
-    if (combosForLetter.length === 0) {
-      return letter; // Fallback to just the letter if no combos
-    }
-    
-    // Calculate remaining counts for each combo and show all of them
-    const allCombos = combosForLetter
-      .map(({ combo, count }) => {
-        const foundWordsWithCombo = Array.from(foundWords).filter(word =>
-          word.length >= 2 && word.substring(0, 2) === combo
-        ).length;
-        
-        const remainingCount = Math.max(0, count - foundWordsWithCombo);
-        
-        return `${combo}(${remainingCount})`;
-      });
-    
-    return allCombos.join('/');
-  };
-
   const lengthColumns = getLengthColumns();
 
   return (
@@ -103,7 +77,7 @@ const HintsGrid = ({ hintsData, foundWords, twoLetterCombos }: HintsGridProps) =
             {letters.map(letter => (
               <tr key={letter} className="border-t border-slate-600/50">
                 <td className="p-1 sm:p-2 font-mono text-xs sm:text-sm font-semibold text-slate-200 uppercase">
-                  <div className="break-all">{getRowLabel(letter)}</div>
+                  {letter}
                 </td>
                 {lengthColumns.map(length => {
                   const count = getCountForCell(letter, length);
