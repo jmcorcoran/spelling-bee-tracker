@@ -3,9 +3,8 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { FileText, Download, AlertCircle, CheckCircle, Upload, Image as ImageIcon, X } from 'lucide-react';
+import { FileText, Download, AlertCircle, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { createWorker } from 'tesseract.js';
 
 interface HintsData {
   [letter: string]: {
@@ -18,20 +17,12 @@ interface HintsFetcherProps {
 }
 
 const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
-  const [hintsImage, setHintsImage] = useState<File | null>(null);
+  const [hintsText, setHintsText] = useState('');
+  const [twoLetterText, setTwoLetterText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [lastFetched, setLastFetched] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const processImageWithOCR = async (file: File): Promise<string> => {
-    const worker = await createWorker('eng');
-    try {
-      const { data: { text } } = await worker.recognize(file);
-      return text;
-    } finally {
-      await worker.terminate();
-    }
-  };
 
   const parseTwoLetterList = (text: string): { combo: string; count: number }[] => {
     if (!text.trim()) return [];
@@ -141,7 +132,7 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
         }
 
         // Get the rest of the line and extract all numbers
-        const restOfLine = line.slice(1).trim();
+        const restOfLine = line.slice(1);
         const numbers = (restOfLine.match(/\d+/g) || []).map(Number);
         
         console.log(`Letter ${firstChar}: found numbers [${numbers.join(', ')}]`);
@@ -192,10 +183,10 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
   };
 
   const parseHints = async () => {
-    if (!hintsImage) {
+    if (!hintsText.trim()) {
       toast({
-        title: "Image Required",
-        description: "Please upload an image containing the hints table and 2-letter list.",
+        title: "Text Required",
+        description: "Please paste the hints table text.",
         variant: "destructive",
       });
       return;
@@ -204,18 +195,16 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
     setIsLoading(true);
 
     try {
-      console.log('Processing image with OCR...');
-      const ocrText = await processImageWithOCR(hintsImage);
-      console.log('OCR result:', ocrText);
-
-      // Parse both hints table and 2-letter list from the same text
-      const parsed = parseHintsFromContent(ocrText);
-      const twoLetterList = parseTwoLetterList(ocrText);
+      console.log('Processing pasted text...');
+      
+      // Parse both hints table and 2-letter list from text
+      const parsed = parseHintsFromContent(hintsText.trim());
+      const twoLetterList = parseTwoLetterList(twoLetterText.trim());
 
       if (!parsed) {
         toast({
           title: "Could not parse hints",
-          description: "We couldn't find a recognizable hints grid. Make sure the image shows a clear table with letters and numbers.",
+          description: "We couldn't find a recognizable hints grid. Make sure it includes letter rows with word counts.",
           variant: "destructive",
         });
         return;
@@ -225,13 +214,13 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
       setLastFetched(new Date().toLocaleString());
       toast({
         title: "Hints Loaded!",
-        description: `Loaded ${parsed.totalWords} total words${twoLetterList.length > 0 ? ` and ${twoLetterList.length} two-letter combos` : ''} from the image.`,
+        description: `Loaded ${parsed.totalWords} total words${twoLetterList.length > 0 ? ` and ${twoLetterList.length} two-letter combos` : ''} from the text.`,
       });
     } catch (error) {
       console.error("Error parsing hints:", error);
       toast({
         title: "Error Loading Hints",
-        description: "Could not process the image. Please check the image quality and try again.",
+        description: "Could not parse the hints data. Please check the format and try again.",
         variant: "destructive",
       });
     } finally {
@@ -247,64 +236,52 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
           Load Hints Data
         </h2>
         <p className="text-slate-300">
-          Upload an image containing both the hints table and 2-letter list
+          Paste the hints table and 2-letter list from the NYT Spelling Bee forum
         </p>
       </div>
 
       <div className="space-y-4">
-        {/* Single Image Upload */}
-        <div className="border-2 border-dashed border-slate-600/60 rounded-lg p-6 text-center hover:border-slate-500/80 transition-colors duration-300 bg-slate-800/50">
-          <div className="flex flex-col items-center gap-4">
-            <div className="p-3 rounded-full bg-slate-700/50">
-              <Upload className="h-8 w-8 text-slate-300" />
-            </div>
-            <div>
-              <p className="text-lg font-medium text-slate-200">Upload Hints Image</p>
-              <p className="text-sm text-slate-400">Should include both the hints table and 2-letter word list</p>
-            </div>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(e) => setHintsImage(e.target.files?.[0] || null)}
-              className="hidden"
-              id="hints-image-upload"
+        <div className="grid grid-cols-1 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-200 mb-2">
+              Main Hints Table
+            </label>
+            <Textarea
+              placeholder="Paste main hints table here (e.g., A 2 4 2...)"
+              value={hintsText}
+              onChange={(e) => setHintsText(e.target.value)}
+              className="min-h-[120px] font-mono text-sm bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-400"
+              rows={6}
             />
-            <Button 
-              variant="outline" 
-              onClick={() => document.getElementById('hints-image-upload')?.click()}
-              className="border-slate-600 bg-slate-800 text-slate-200 hover:bg-slate-700 hover:border-slate-500"
-            >
-              Choose Image
-            </Button>
           </div>
-          {hintsImage && (
-            <div className="mt-4 flex items-center justify-center gap-2 text-sm text-slate-300 bg-slate-700/30 rounded-lg p-3">
-              <ImageIcon className="h-4 w-4" />
-              <span>{hintsImage.name}</span>
-              <button
-                onClick={() => setHintsImage(null)}
-                className="p-1 bg-red-900/50 text-red-300 rounded-full hover:bg-red-800/60 transition-colors"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          )}
+          <div>
+            <label className="block text-sm font-medium text-slate-200 mb-2">
+              Two Letter List (optional)
+            </label>
+            <Textarea
+              placeholder="Paste 2-letter word list here (e.g., AL: 2, AN: 4, AV: 2)"
+              value={twoLetterText}
+              onChange={(e) => setTwoLetterText(e.target.value)}
+              className="min-h-[120px] font-mono text-sm bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-400"
+              rows={6}
+            />
+          </div>
         </div>
 
         <Button
           onClick={parseHints}
-          disabled={isLoading || !hintsImage}
+          disabled={isLoading || !hintsText.trim()}
           className="w-full bg-blue-600 hover:bg-blue-700 text-white"
         >
           {isLoading ? (
             <>
               <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
-              Processing Image...
+              Parsing Hints...
             </>
           ) : (
             <>
               <Download className="h-4 w-4 mr-2" />
-              Process Image
+              Parse Hints Data
             </>
           )}
         </Button>
