@@ -63,7 +63,7 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
     
     return results.sort((a, b) => a.combo.localeCompare(b.combo));
   };
-  // Parse hints data from page text (expects rows like "A 3 2 1 ...")
+  // Parse hints data from page text (expects rows like "a: 2 4 2 - - - - 8")
   const parseHintsFromContent = (
     content: string
   ): { hintsData: HintsData; totalWords: number } | null => {
@@ -74,17 +74,26 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
       const lines = content.split("\n").map((l) => l.trim());
 
       for (const raw of lines) {
-        const line = raw.replace(/\u00A0/g, " ").toUpperCase();
-        // Match: single letter then a series of numbers (separated by spaces, commas, pipes, etc.)
-        const letterMatch = line.match(/^([A-Z])[:\s|\-]+([0-9\s,|/]+)/i);
+        const line = raw.replace(/\u00A0/g, " ");
+        
+        // Match: single letter followed by colon, then tab/space separated values
+        // Example: "a:	2	4	2	-	-	-	-	8"
+        const letterMatch = line.match(/^([a-z]):\s*(.+)$/i);
         if (letterMatch) {
           const letter = letterMatch[1].toUpperCase();
-          const numbers = (letterMatch[2].match(/\d+/g) || []).map(Number);
-          if (numbers.length) {
+          
+          // Skip the totals row (Σ)
+          if (letter === 'Σ') continue;
+          
+          // Split by tabs or multiple spaces, filter out the final total (Σ column)
+          const values = letterMatch[2].split(/\s+/).slice(0, -1); // Remove last element (row total)
+          
+          if (values.length > 0) {
             hintsData[letter] = {};
-            numbers.forEach((count, idx) => {
-              const length = 4 + idx; // columns usually start at 4 letters
-              if (count > 0) {
+            values.forEach((value, idx) => {
+              const count = value === '-' ? 0 : parseInt(value, 10);
+              if (!isNaN(count) && count > 0) {
+                const length = 4 + idx; // columns start at 4 letters
                 hintsData[letter][length] = count;
                 totalWords += count;
               }
