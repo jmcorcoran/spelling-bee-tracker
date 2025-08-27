@@ -104,24 +104,29 @@ const ImageUpload = ({ onWordsExtracted }: ImageUploadProps) => {
   }, []);
 
   return (
-    <Card className="p-6 bg-gradient-to-br from-honeycomb/5 to-wax/30 border-honeycomb/20">
-      <div className="mb-4">
-        <h2 className="text-2xl font-bold text-foreground mb-2">Upload Word Images</h2>
-        <p className="text-muted-foreground">Upload photos of the words you've found</p>
+    <Card className="p-4 bg-slate-900/90 border-slate-700/50 backdrop-blur-sm">
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <h3 className="text-lg font-semibold text-slate-100">Upload Images</h3>
+          <p className="text-sm text-slate-400">Extract words from photos</p>
+        </div>
+        <Badge variant="secondary" className="bg-slate-800 text-slate-300">
+          {uploadedFiles.length} files
+        </Badge>
       </div>
 
       <div
-        className="border-2 border-dashed border-honeycomb/40 rounded-lg p-8 text-center hover:border-honeycomb/60 transition-colors duration-300 bg-background/50"
+        className="border-2 border-dashed border-slate-600/60 rounded-lg p-4 text-center hover:border-slate-500/80 transition-colors duration-300 bg-slate-800/50"
         onDrop={handleDrop}
         onDragOver={handleDragOver}
       >
-        <div className="flex flex-col items-center gap-4">
-          <div className="p-4 rounded-full bg-honeycomb/10">
-            <Upload className="h-8 w-8 text-honeycomb" />
+        <div className="flex items-center justify-center gap-3">
+          <div className="p-2 rounded-full bg-slate-700/50">
+            <Upload className="h-5 w-5 text-slate-300" />
           </div>
-          <div>
-            <p className="text-lg font-medium text-foreground">Drop images here</p>
-            <p className="text-muted-foreground">or click to browse</p>
+          <div className="text-left">
+            <p className="text-sm font-medium text-slate-200">Drop images or click to browse</p>
+            <p className="text-xs text-slate-400">PNG, JPG, GIF up to 10MB</p>
           </div>
           <input
             type="file"
@@ -133,30 +138,28 @@ const ImageUpload = ({ onWordsExtracted }: ImageUploadProps) => {
           />
           <Button 
             variant="outline" 
+            size="sm"
             onClick={() => document.getElementById('file-upload')?.click()}
-            className="border-honeycomb/50 hover:bg-honeycomb/10 hover:border-honeycomb"
+            className="border-slate-600 bg-slate-800 text-slate-200 hover:bg-slate-700 hover:border-slate-500"
           >
-            Choose Files
+            Browse
           </Button>
         </div>
       </div>
 
       {uploadedFiles.length > 0 && (
-        <div className="mt-6">
-          <h3 className="font-semibold text-foreground mb-3">Uploaded Images ({uploadedFiles.length})</h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+        <div className="mt-4">
+          <div className="flex flex-wrap gap-2">
             {uploadedFiles.map((file, index) => (
-              <div key={index} className="relative group">
-                <div className="aspect-square bg-muted rounded-lg flex items-center justify-center border border-border/50 group-hover:border-honeycomb/50 transition-colors duration-200">
-                  <ImageIcon className="h-8 w-8 text-muted-foreground" />
-                </div>
+              <div key={index} className="relative group flex items-center gap-2 bg-slate-800/60 rounded-lg p-2 border border-slate-700/50">
+                <ImageIcon className="h-4 w-4 text-slate-400" />
+                <span className="text-xs text-slate-300 max-w-24 truncate">{file.name}</span>
                 <button
                   onClick={() => removeFile(index)}
-                  className="absolute -top-2 -right-2 p-1 bg-destructive text-destructive-foreground rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-destructive/90"
+                  className="p-1 bg-red-900/50 text-red-300 rounded-full hover:bg-red-800/60 transition-colors"
                 >
-                  <X className="h-4 w-4" />
+                  <X className="h-3 w-3" />
                 </button>
-                <p className="text-xs text-muted-foreground mt-1 truncate">{file.name}</p>
               </div>
             ))}
           </div>
@@ -164,12 +167,11 @@ const ImageUpload = ({ onWordsExtracted }: ImageUploadProps) => {
       )}
 
       {isProcessing && (
-        <div className="mt-6 p-4 bg-honeycomb/10 rounded-lg border border-honeycomb/20">
+        <div className="mt-4 p-3 bg-slate-800/60 rounded-lg border border-slate-700/50">
           <div className="flex items-center gap-3">
-            <div className="animate-spin rounded-full h-5 w-5 border-2 border-honeycomb border-t-transparent"></div>
-            <span className="text-foreground font-medium">Processing images...</span>
+            <div className="animate-spin rounded-full h-4 w-4 border-2 border-slate-400 border-t-transparent"></div>
+            <span className="text-slate-200 text-sm font-medium">Processing images...</span>
           </div>
-          <p className="text-muted-foreground text-sm mt-1">Extracting words from your images</p>
         </div>
       )}
     </Card>

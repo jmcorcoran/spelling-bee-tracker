@@ -133,15 +133,15 @@ const WordTracker = () => {
           </div>
         )}
 
-        {/* Main Content Grid */}
+        {/* Main Content */}
         {hasLoadedHints && (
           <>
-            <div className="grid lg:grid-cols-2 gap-8">
-              {/* Image Upload */}
-              <div>
-                <ImageUpload onWordsExtracted={handleWordsFound} />
-              </div>
+            {/* Image Upload - Compact version above table */}
+            <div className="mb-6">
+              <ImageUpload onWordsExtracted={handleWordsFound} />
+            </div>
 
+            <div className="grid lg:grid-cols-2 gap-8">
               {/* Hints Grid */}
               <div>
                 <HintsGrid hintsData={remainingHintsData} foundWords={foundWords} />
