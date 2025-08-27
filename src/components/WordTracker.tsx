@@ -173,7 +173,11 @@ const WordTracker = () => {
             <div className="space-y-6">
               {/* Hints Grid */}
               <div>
-                <HintsGrid hintsData={remainingHintsData} foundWords={foundWords} />
+                <HintsGrid 
+                  hintsData={remainingHintsData} 
+                  foundWords={foundWords}
+                  twoLetterCombos={twoLetterList}
+                />
 
                 {/* Two Letter List */}
                 {twoLetterList.length > 0 && (
