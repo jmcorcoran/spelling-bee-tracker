@@ -3,7 +3,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Target, Plus, X } from 'lucide-react';
+import { Target, Plus, X, RotateCcw } from 'lucide-react';
 import HintsGrid from './HintsGrid';
 import ImageUpload from './ImageUpload';
 import HintsFetcher from './HintsFetcher';
@@ -72,6 +72,10 @@ const WordTracker = () => {
     }
   };
 
+  const resetProgress = () => {
+    setFoundWords(new Set());
+  };
+
   const removeWord = (wordToRemove: string) => {
     setFoundWords(prev => {
       const updated = new Set(prev);
@@ -117,6 +121,15 @@ const WordTracker = () => {
                 <div className="text-2xl font-bold text-blue-400">{progressPercentage}%</div>
                 <div className="text-sm text-slate-400">Complete</div>
               </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={resetProgress}
+                className="ml-4 border-slate-600 bg-slate-700 text-slate-200 hover:bg-slate-600 hover:border-slate-500"
+              >
+                <RotateCcw className="h-4 w-4 mr-2" />
+                Reset
+              </Button>
             </Card>
           )}
         </div>

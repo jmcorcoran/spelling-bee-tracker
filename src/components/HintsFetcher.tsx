@@ -106,34 +106,51 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
   };
 
   return (
-    <Card className="p-6 bg-gradient-to-br from-honeycomb/5 to-wax/30 border-honeycomb/20">
+    <Card className="p-6 bg-slate-800/80 border-slate-700/50 backdrop-blur-sm">
       <div className="mb-4">
-        <h2 className="text-2xl font-bold text-foreground mb-2 flex items-center gap-2">
-          <FileText className="h-6 w-6 text-honeycomb" />
+        <h2 className="text-2xl font-bold text-white mb-2 flex items-center gap-2">
+          <FileText className="h-6 w-6 text-blue-400" />
           Load Hints Data
         </h2>
-        <p className="text-muted-foreground">
+        <p className="text-slate-300">
           Paste the hints table from the NYT Spelling Bee forum page
         </p>
       </div>
 
       <div className="space-y-4">
-        <Textarea
-          placeholder="Paste the hints table here (e.g., A 3 2 1...)"
-          value={hintsText}
-          onChange={(e) => setHintsText(e.target.value)}
-          className="min-h-[120px] font-mono text-sm"
-          rows={6}
-        />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-200 mb-2">
+              Main Hints Table (4+ letters)
+            </label>
+            <Textarea
+              placeholder="Paste main hints table here (e.g., A 3 2 1...)"
+              value={hintsText}
+              onChange={(e) => setHintsText(e.target.value)}
+              className="min-h-[120px] font-mono text-sm bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-400"
+              rows={6}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-200 mb-2">
+              Two Letter List (optional)
+            </label>
+            <Textarea
+              placeholder="Paste 2-letter word list here (e.g., AB, AC, AD...)"
+              className="min-h-[120px] font-mono text-sm bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-400"
+              rows={6}
+            />
+          </div>
+        </div>
 
         <Button
           onClick={parseHints}
           disabled={isLoading || !hintsText.trim()}
-          className="w-full bg-honeycomb hover:bg-honeycomb-dark text-foreground"
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white"
         >
           {isLoading ? (
             <>
-              <div className="animate-spin rounded-full h-4 w-4 border-2 border-foreground border-t-transparent mr-2"></div>
+              <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
               Parsing Hints...
             </>
           ) : (
@@ -145,23 +162,24 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
         </Button>
 
         {lastFetched && (
-          <div className="flex items-center gap-2 p-3 bg-honeycomb/10 rounded-lg border border-honeycomb/20">
-            <CheckCircle className="h-4 w-4 text-honeycomb-dark" />
-            <span className="text-sm text-foreground">
+          <div className="flex items-center gap-2 p-3 bg-blue-900/30 rounded-lg border border-blue-700/50">
+            <CheckCircle className="h-4 w-4 text-blue-400" />
+            <span className="text-sm text-slate-200">
               Last updated: {lastFetched}
             </span>
           </div>
         )}
 
-        <div className="p-3 bg-muted/50 rounded-lg border border-border/50">
+        <div className="p-3 bg-slate-700/50 rounded-lg border border-slate-600/50">
           <div className="flex items-start gap-2">
-            <AlertCircle className="h-4 w-4 text-muted-foreground mt-0.5" />
-            <div className="text-sm text-muted-foreground">
+            <AlertCircle className="h-4 w-4 text-slate-400 mt-0.5" />
+            <div className="text-sm text-slate-300">
               <p className="font-medium mb-1">Expected Format:</p>
-              <ul className="text-xs space-y-1">
+              <ul className="text-xs space-y-1 text-slate-400">
                 <li>• Each line should start with a letter (A, B, C, etc.)</li>
                 <li>• Followed by word counts for different lengths</li>
                 <li>• Example: "A 3 2 1" means 3 four-letter words, 2 five-letter words, 1 six-letter word</li>
+                <li>• Two-letter list is optional and for reference only</li>
               </ul>
             </div>
           </div>
