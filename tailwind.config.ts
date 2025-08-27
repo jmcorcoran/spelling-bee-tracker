@@ -52,6 +52,13 @@ export default {
 					DEFAULT: 'hsl(var(--card))',
 					foreground: 'hsl(var(--card-foreground))'
 				},
+				honeycomb: {
+					DEFAULT: 'hsl(var(--honeycomb))',
+					dark: 'hsl(var(--honeycomb-dark))',
+					light: 'hsl(var(--honeycomb-light))'
+				},
+				wax: 'hsl(var(--wax))',
+				pollen: 'hsl(var(--pollen))',
 				sidebar: {
 					DEFAULT: 'hsl(var(--sidebar-background))',
 					foreground: 'hsl(var(--sidebar-foreground))',
