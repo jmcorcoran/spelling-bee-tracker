@@ -39,7 +39,7 @@ const HintsGrid = ({ hintsData, foundWords }: HintsGridProps) => {
   
 
   return (
-    <Card className="p-6 bg-gradient-to-br from-wax to-background border-honeycomb/20">
+    <Card className="p-6 bg-card border-border">
       <div className="mb-4">
         <h2 className="text-2xl font-bold text-foreground mb-2">Hints Grid</h2>
         <p className="text-muted-foreground">Word counts by starting letter and length</p>
@@ -48,19 +48,19 @@ const HintsGrid = ({ hintsData, foundWords }: HintsGridProps) => {
       <div className="overflow-x-auto">
         <table className="w-full border-collapse">
           <thead>
-            <tr>
+            <tr className="border-b border-border">
               <th className="p-2 text-left font-semibold text-foreground">Letter</th>
               {lengthColumns.map(length => (
                 <th key={length} className="p-2 text-center font-semibold text-foreground min-w-[60px]">
                   {length}
                 </th>
               ))}
-              <th className="p-2 text-center font-semibold text-honeycomb-dark">Total</th>
+              <th className="p-2 text-center font-semibold text-primary">Total</th>
             </tr>
           </thead>
           <tbody>
             {letters.map(letter => (
-              <tr key={letter} className="border-t border-border/50">
+              <tr key={letter} className="border-t border-border/50 hover:bg-muted/50 transition-colors">
                 <td className="p-2 font-mono font-semibold text-lg text-foreground uppercase">
                   {letter}
                 </td>
@@ -71,7 +71,7 @@ const HintsGrid = ({ hintsData, foundWords }: HintsGridProps) => {
                       {count > 0 && (
                         <Badge 
                           variant="secondary" 
-                          className="bg-honeycomb/10 text-foreground hover:bg-honeycomb/20 transition-colors duration-200"
+                          className="bg-secondary/80 text-secondary-foreground hover:bg-secondary transition-colors duration-200"
                         >
                           {count}
                         </Badge>
@@ -82,20 +82,20 @@ const HintsGrid = ({ hintsData, foundWords }: HintsGridProps) => {
                 <td className="p-2 text-center">
                   <Badge 
                     variant="default" 
-                    className="bg-honeycomb text-foreground hover:bg-honeycomb-dark transition-colors duration-200"
+                    className="bg-primary text-primary-foreground hover:bg-primary/90 transition-colors duration-200"
                   >
                     {getTotalForLetter(letter)}
                   </Badge>
                 </td>
               </tr>
             ))}
-            <tr className="border-t-2 border-honeycomb/30 bg-honeycomb/5">
+            <tr className="border-t-2 border-primary/30 bg-muted/30">
               <td className="p-2 font-semibold text-foreground">Total</td>
               {lengthColumns.map(length => (
                 <td key={length} className="p-2 text-center">
                   <Badge 
                     variant="outline" 
-                    className="border-honeycomb text-honeycomb-dark hover:bg-honeycomb/10 transition-colors duration-200"
+                    className="border-primary/50 text-primary hover:bg-primary/10 transition-colors duration-200"
                   >
                     {getTotalForLength(length)}
                   </Badge>
@@ -104,7 +104,7 @@ const HintsGrid = ({ hintsData, foundWords }: HintsGridProps) => {
               <td className="p-2 text-center">
                 <Badge 
                   variant="default" 
-                  className="bg-gradient-to-r from-honeycomb to-pollen text-foreground font-bold"
+                  className="bg-primary text-primary-foreground font-bold shadow-md"
                 >
                   {letters.reduce((sum, letter) => sum + getTotalForLetter(letter), 0)}
                 </Badge>
