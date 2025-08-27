@@ -23,44 +23,35 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
   const [lastFetched, setLastFetched] = useState<string | null>(null);
   const { toast } = useToast();
 
-
   const parseTwoLetterList = (text: string): { combo: string; count: number }[] => {
     if (!text.trim()) return [];
     
     const results: { combo: string; count: number }[] = [];
+    const lines = text.split('\n').map(line => line.trim());
     
-    // Split by both newlines and common separators
-    const allText = text.replace(/[\n\r]+/g, ' ');
-    
-    // Look for patterns like "AB: 5", "AB 5", "AB-5", "AB(5)", or just "AB"
-    const patterns = [
-      /([A-Z]{2})[:\s\-\(]+(\d+)[\)]*(?:\s|$|,)/gi,  // AB: 5, AB 5, AB-5, AB(5)
-      /([A-Z]{2})(?:\s|$|,)/gi  // Just AB (fallback)
-    ];
-    
-    // Try the first pattern (with numbers)
-    let match;
-    const regex1 = /([A-Z]{2})[:\s\-\(]+(\d+)[\)]*(?:\s|$|,)/gi;
-    while ((match = regex1.exec(allText)) !== null) {
-      const combo = match[1].toUpperCase();
-      const count = parseInt(match[2], 10);
-      if (combo.length === 2 && count > 0) {
-        results.push({ combo, count });
-      }
-    }
-    
-    // If no matches with numbers, try just extracting 2-letter combos
-    if (results.length === 0) {
-      const regex2 = /([A-Z]{2})(?:\s|$|,)/gi;
-      while ((match = regex2.exec(allText)) !== null) {
+    for (const line of lines) {
+      // Try to match patterns like "AB: 5" or "AB 5" or "AB-5"
+      const match = line.match(/([A-Z]{2})[:\s\-]+(\d+)/i);
+      if (match) {
         const combo = match[1].toUpperCase();
-        if (combo.length === 2 && !results.find(r => r.combo === combo)) {
-          results.push({ combo, count: 1 }); // Default count
+        const count = parseInt(match[2], 10);
+        if (combo.length === 2 && count > 0) {
+          results.push({ combo, count });
         }
+      } else {
+        // Fallback: just extract 2-letter combos without counts
+        const words = line.split(/[\s,]+/)
+          .map(word => word.replace(/[^A-Za-z]/g, '').toUpperCase())
+          .filter(word => word.length === 2 && /^[A-Z]+$/.test(word));
+        
+        words.forEach(combo => {
+          if (!results.find(r => r.combo === combo)) {
+            results.push({ combo, count: 0 }); // No count available
+          }
+        });
       }
     }
     
-    console.log('Parsed 2-letter combos:', results); // Debug log
     return results.sort((a, b) => a.combo.localeCompare(b.combo));
   };
   // Parse hints data from page text (expects rows like "A 3 2 1 ...")
@@ -71,122 +62,35 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
       const hintsData: HintsData = {};
       let totalWords = 0;
 
-      // Split and clean lines
-      const lines = content
-        .split("\n")
-        .map((l) => l.replace(/\u00A0/g, ' ').replace(/[•·▪]+/g, ' ').trim())
-        .filter(Boolean);
+      const lines = content.split("\n").map((l) => l.trim());
 
-      console.log('All pasted lines:', lines);
-
-      // Helper: detect a valid letter row like "A 3 2 1" or "B: 1 0 2" etc.
-      const parseRow = (line: string): { letter: string; counts: number[] } | null => {
-        // Avoid obvious non-row lines early
-        if (/^(TOTAL|POINT|PANGRAM|RANK|SCORE|PUZZLE|WORDS|HINT|STATS)/i.test(line)) return null;
-
-        // Accept forms like: A 3 2 1 | A: 3 2 1 | A- 3 2 | A. 3 2
-        const match = line.match(/^([A-Z])(?:\s*[:.\-])?\s+(.+)$/);
-        if (!match) return null;
-        const letter = match[1].toUpperCase();
-        const numbers = (match[2].match(/\d+/g) || []).map(Number);
-        if (numbers.length === 0) return null;
-
-        // Drop trailing total if present
-        let counts = numbers;
-        if (counts.length > 1) {
-          const last = counts[counts.length - 1];
-          const sumRest = counts.slice(0, -1).reduce((a, b) => a + b, 0);
-          if (last === sumRest) counts = counts.slice(0, -1);
-        }
-        return { letter, counts };
-      };
-
-      // Try to find a header row with explicit lengths
-      let columnLengths: number[] = [];
-      let headerIndex = -1;
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-
-        if (/^(LETTER|LETTERS|LENGTH)/i.test(line)) {
-          const nums = (line.match(/\d+/g) || [])
-            .map(Number)
-            .filter((n) => n >= 3 && n <= 20);
-          if (nums.length >= 2) {
-            columnLengths = nums;
-            headerIndex = i;
-            console.log('Found header w/ label:', columnLengths);
-            break;
-          }
-        }
-
-        const tokens = line.split(/\s+/);
-        if (tokens.length >= 2 && tokens.every((t) => /^\d+$/.test(t))) {
-          const nums = tokens.map(Number).filter((n) => n >= 3 && n <= 20);
-          if (nums.length >= 2) {
-            columnLengths = nums;
-            headerIndex = i;
-            console.log('Found numeric header:', columnLengths);
-            break;
+      for (const raw of lines) {
+        const line = raw.replace(/\u00A0/g, " ").toUpperCase();
+        // Match: single letter then a series of numbers (separated by spaces, commas, pipes, etc.)
+        const letterMatch = line.match(/^([A-Z])[:\s|\-]+([0-9\s,|/]+)/i);
+        if (letterMatch) {
+          const letter = letterMatch[1].toUpperCase();
+          const numbers = (letterMatch[2].match(/\d+/g) || []).map(Number);
+          if (numbers.length) {
+            hintsData[letter] = {};
+            numbers.forEach((count, idx) => {
+              const length = 4 + idx; // columns usually start at 4 letters
+              if (count > 0) {
+                hintsData[letter][length] = count;
+                totalWords += count;
+              }
+            });
           }
         }
       }
 
-      // Collect letter rows (prefer the contiguous block after header if present)
-      const rows: { letter: string; counts: number[] }[] = [];
-      const startIdx = headerIndex >= 0 ? headerIndex + 1 : 0;
-
-      if (headerIndex >= 0) {
-        for (let i = startIdx; i < lines.length; i++) {
-          const line = lines[i];
-          if (/^TOTAL/i.test(line)) break; // stop at totals
-          const row = parseRow(line);
-          if (!row) {
-            // If we've already started collecting rows, stop when the block ends
-            if (rows.length > 0) break;
-            continue;
-          }
-          rows.push(row);
-        }
-      } else {
-        // No explicit header: accept any valid letter rows anywhere
-        for (const line of lines) {
-          const row = parseRow(line);
-          if (row) rows.push(row);
-        }
+      if (Object.keys(hintsData).length === 0) {
+        return null; // don't fabricate data; signal parse failure
       }
 
-      if (rows.length === 0) {
-        console.log('No letter rows found');
-        return null;
-      }
-
-      // If no header, infer lengths from first row assuming 4+ letters (Spelling Bee)
-      if (columnLengths.length === 0) {
-        const countLen = rows[0].counts.length;
-        columnLengths = Array.from({ length: countLen }, (_, i) => 4 + i);
-        console.log('Inferred column lengths:', columnLengths);
-      }
-
-      // Map rows into hintsData
-      for (const { letter, counts } of rows) {
-        hintsData[letter] = {};
-        for (let idx = 0; idx < Math.min(counts.length, columnLengths.length); idx++) {
-          const count = counts[idx];
-          const length = columnLengths[idx];
-          if (count > 0) {
-            hintsData[letter][length] = (hintsData[letter][length] || 0) + count;
-            totalWords += count;
-          }
-        }
-      }
-
-      console.log('Final parsed data:', hintsData);
-      console.log('Total words (computed):', totalWords);
-
-      if (Object.keys(hintsData).length === 0) return null;
       return { hintsData, totalWords };
     } catch (error) {
-      console.error('Error parsing hints data:', error);
+      console.error("Error parsing hints data:", error);
       return null;
     }
   };
@@ -204,16 +108,13 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
     setIsLoading(true);
 
     try {
-      console.log('Processing pasted text...');
-      
-      // Parse both hints table and 2-letter list from text
       const parsed = parseHintsFromContent(hintsText.trim());
       const twoLetterList = parseTwoLetterList(twoLetterText.trim());
 
       if (!parsed) {
         toast({
           title: "Could not parse hints",
-          description: "We couldn't find a recognizable hints grid. Make sure it includes letter rows with word counts.",
+          description: "We couldn't find a recognizable hints grid in the pasted text. Make sure it includes letter rows with word counts.",
           variant: "destructive",
         });
         return;
@@ -223,13 +124,13 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
       setLastFetched(new Date().toLocaleString());
       toast({
         title: "Hints Loaded!",
-        description: `Loaded ${parsed.totalWords} total words${twoLetterList.length > 0 ? ` and ${twoLetterList.length} two-letter combos` : ''} from the text.`,
+        description: `Loaded ${parsed.totalWords} total words${twoLetterList.length > 0 ? ` and ${twoLetterList.length} two-letter combos` : ''} from the pasted text.`,
       });
     } catch (error) {
       console.error("Error parsing hints:", error);
       toast({
         title: "Error Loading Hints",
-        description: "Could not parse the hints data. Please check the format and try again.",
+        description: "Could not parse hints data. Please check the format and try again.",
         variant: "destructive",
       });
     } finally {
@@ -245,7 +146,7 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
           Load Hints Data
         </h2>
         <p className="text-slate-300">
-          Paste the hints table and 2-letter list from the NYT Spelling Bee forum
+          Paste the hints table from the NYT Spelling Bee forum page
         </p>
       </div>
 
@@ -253,10 +154,10 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
         <div className="grid grid-cols-1 gap-4">
           <div>
             <label className="block text-sm font-medium text-slate-200 mb-2">
-              Main Hints Table
+              Main Hints Table (4+ letters)
             </label>
             <Textarea
-              placeholder="Paste main hints table here (e.g., A 2 4 2...)"
+              placeholder="Paste main hints table here (e.g., A 3 2 1...)"
               value={hintsText}
               onChange={(e) => setHintsText(e.target.value)}
               className="min-h-[120px] font-mono text-sm bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-400"
@@ -268,7 +169,7 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
               Two Letter List (optional)
             </label>
             <Textarea
-              placeholder="Paste 2-letter word list here (e.g., AL: 2, AN: 4, AV: 2)"
+              placeholder="Paste 2-letter word list here (e.g., AB, AC, AD...)"
               value={twoLetterText}
               onChange={(e) => setTwoLetterText(e.target.value)}
               className="min-h-[120px] font-mono text-sm bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-400"

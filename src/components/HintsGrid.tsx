@@ -14,19 +14,32 @@ interface HintsGridProps {
 
 const HintsGrid = ({ hintsData, foundWords }: HintsGridProps) => {
   const letters = Object.keys(hintsData).sort();
+  const maxLength = Math.max(...Object.values(hintsData).flatMap(letterData => 
+    Object.keys(letterData).map(Number)
+  ));
+  const minLength = 4;
 
-  // Determine columns dynamically from parsed data (union of all lengths present)
-  const lengthColumns = Array.from(
-    new Set(
-      Object.values(hintsData).flatMap((letterData) =>
-        Object.keys(letterData).map(Number)
-      )
-    )
-  ).sort((a, b) => a - b);
+  const getLengthColumns = () => {
+    const columns = [];
+    for (let i = minLength; i <= maxLength; i++) {
+      columns.push(i);
+    }
+    if (maxLength > 7) {
+      columns.push('8+');
+    }
+    return columns;
+  };
 
-  const getCountForCell = (letter: string, length: number) => {
+  const getCountForCell = (letter: string, length: number | string) => {
     if (!hintsData[letter]) return 0;
-    return hintsData[letter][length] || 0;
+    
+    if (length === '8+') {
+      return Object.entries(hintsData[letter])
+        .filter(([len]) => Number(len) >= 8)
+        .reduce((sum, [, count]) => sum + count, 0);
+    }
+    
+    return hintsData[letter][length as number] || 0;
   };
 
   const getTotalForLetter = (letter: string) => {
@@ -34,46 +47,46 @@ const HintsGrid = ({ hintsData, foundWords }: HintsGridProps) => {
     return Object.values(hintsData[letter]).reduce((sum, count) => sum + count, 0);
   };
 
-  const getTotalForLength = (length: number) => {
+  const getTotalForLength = (length: number | string) => {
     return letters.reduce((sum, letter) => sum + getCountForCell(letter, length), 0);
   };
 
-  
+  const lengthColumns = getLengthColumns();
 
   return (
-    <Card className="p-3 sm:p-6 bg-slate-800/60 border-slate-700/50">
+    <Card className="p-6 bg-gradient-to-br from-wax to-background border-honeycomb/20">
       <div className="mb-4">
-        <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">Hints Grid</h2>
-        <p className="text-slate-300 text-sm sm:text-base">Word counts by starting letter and length</p>
+        <h2 className="text-2xl font-bold text-foreground mb-2">Hints Grid</h2>
+        <p className="text-muted-foreground">Word counts by starting letter and length</p>
       </div>
       
       <div className="overflow-x-auto">
-        <table className="w-full border-collapse text-xs sm:text-sm">
+        <table className="w-full border-collapse">
           <thead>
             <tr>
-              <th className="p-1 sm:p-2 text-left font-semibold text-slate-200 w-20 sm:w-auto">Letter</th>
+              <th className="p-2 text-left font-semibold text-foreground">Letter</th>
               {lengthColumns.map(length => (
-                <th key={length} className="p-1 sm:p-2 text-center font-semibold text-slate-200 min-w-[40px] sm:min-w-[60px]">
+                <th key={length} className="p-2 text-center font-semibold text-foreground min-w-[60px]">
                   {length}
                 </th>
               ))}
-              <th className="p-1 sm:p-2 text-center font-semibold text-blue-400">Total</th>
+              <th className="p-2 text-center font-semibold text-honeycomb-dark">Total</th>
             </tr>
           </thead>
           <tbody>
             {letters.map(letter => (
-              <tr key={letter} className="border-t border-slate-600/50">
-                <td className="p-1 sm:p-2 font-mono text-xs sm:text-sm font-semibold text-slate-200 uppercase">
+              <tr key={letter} className="border-t border-border/50">
+                <td className="p-2 font-mono font-semibold text-lg text-foreground uppercase">
                   {letter}
                 </td>
                 {lengthColumns.map(length => {
                   const count = getCountForCell(letter, length);
                   return (
-                    <td key={length} className="p-1 sm:p-2 text-center">
+                    <td key={length} className="p-2 text-center">
                       {count > 0 && (
                         <Badge 
                           variant="secondary" 
-                          className="bg-slate-700/60 text-slate-200 hover:bg-slate-600/60 transition-colors duration-200 text-xs px-1 py-0.5"
+                          className="bg-honeycomb/10 text-foreground hover:bg-honeycomb/20 transition-colors duration-200"
                         >
                           {count}
                         </Badge>
@@ -81,32 +94,32 @@ const HintsGrid = ({ hintsData, foundWords }: HintsGridProps) => {
                     </td>
                   );
                 })}
-                <td className="p-1 sm:p-2 text-center">
+                <td className="p-2 text-center">
                   <Badge 
                     variant="default" 
-                    className="bg-blue-600 text-white hover:bg-blue-700 transition-colors duration-200 text-xs px-1 py-0.5"
+                    className="bg-honeycomb text-foreground hover:bg-honeycomb-dark transition-colors duration-200"
                   >
                     {getTotalForLetter(letter)}
                   </Badge>
                 </td>
               </tr>
             ))}
-            <tr className="border-t-2 border-slate-500/50 bg-slate-700/30">
-              <td className="p-1 sm:p-2 font-semibold text-slate-200 text-xs sm:text-sm">Total</td>
+            <tr className="border-t-2 border-honeycomb/30 bg-honeycomb/5">
+              <td className="p-2 font-semibold text-foreground">Total</td>
               {lengthColumns.map(length => (
-                <td key={length} className="p-1 sm:p-2 text-center">
+                <td key={length} className="p-2 text-center">
                   <Badge 
                     variant="outline" 
-                    className="border-blue-500 text-blue-400 hover:bg-blue-500/10 transition-colors duration-200 text-xs px-1 py-0.5"
+                    className="border-honeycomb text-honeycomb-dark hover:bg-honeycomb/10 transition-colors duration-200"
                   >
                     {getTotalForLength(length)}
                   </Badge>
                 </td>
               ))}
-              <td className="p-1 sm:p-2 text-center">
+              <td className="p-2 text-center">
                 <Badge 
                   variant="default" 
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold text-xs px-1 py-0.5"
+                  className="bg-gradient-to-r from-honeycomb to-pollen text-foreground font-bold"
                 >
                   {letters.reduce((sum, letter) => sum + getTotalForLetter(letter), 0)}
                 </Badge>
