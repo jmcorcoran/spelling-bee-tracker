@@ -71,6 +71,8 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
       let totalWords = 0;
 
       const lines = content.split("\n").map((l) => l.trim());
+      
+      console.log('Parsing hints from lines:', lines); // Debug log
 
       for (const raw of lines) {
         const line = raw.replace(/\u00A0/g, " ").toUpperCase();
@@ -79,6 +81,8 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
         if (letterMatch) {
           const letter = letterMatch[1].toUpperCase();
           const numbers = (letterMatch[2].match(/\d+/g) || []).map(Number);
+          console.log(`Letter ${letter} found numbers:`, numbers); // Debug log
+          
           if (numbers.length) {
             hintsData[letter] = {};
             numbers.forEach((count, idx) => {
@@ -91,6 +95,9 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
           }
         }
       }
+      
+      console.log('Final hints data:', hintsData); // Debug log
+      console.log('Total words calculated:', totalWords); // Debug log
 
       if (Object.keys(hintsData).length === 0) {
         return null; // don't fabricate data; signal parse failure
