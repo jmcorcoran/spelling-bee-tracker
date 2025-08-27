@@ -123,14 +123,22 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
 
       // Parse letter rows
       for (const line of lines) {
-        // Skip header, total, or empty lines
-        if (/^LETTER/i.test(line) || /^TOTAL/i.test(line) || !/^[A-Z]/.test(line)) {
+        // Skip header, total, or empty lines - be more aggressive about total detection
+        if (/^LETTER/i.test(line) || 
+            /^TOTAL/i.test(line) || 
+            /^\s*TOTAL/i.test(line) ||
+            /TOTAL\s*$/i.test(line) ||
+            !/^[A-Z]/.test(line)) {
+          console.log(`Skipping line: "${line}"`);
           continue;
         }
 
         // Must start with a single letter
         const firstChar = line.charAt(0).toUpperCase();
-        if (!/[A-Z]/.test(firstChar)) continue;
+        if (!/[A-Z]/.test(firstChar)) {
+          console.log(`Skipping non-letter line: "${line}"`);
+          continue;
+        }
 
         // Get the rest of the line and extract all numbers
         const restOfLine = line.slice(1).trim();
@@ -151,16 +159,22 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
           }
         }
 
-        // Map counts to column lengths
+        // Map counts to ALL column lengths (don't limit to just a few)
         hintsData[firstChar] = {};
-        counts.forEach((count, idx) => {
-          if (idx < columnLengths.length && count > 0) {
-            const length = columnLengths[idx];
+        for (let idx = 0; idx < Math.min(counts.length, columnLengths.length); idx++) {
+          const count = counts[idx];
+          const length = columnLengths[idx];
+          if (count > 0) {
             hintsData[firstChar][length] = count;
             totalWords += count;
             console.log(`  Mapped ${count} words of length ${length}`);
           }
-        });
+        }
+        
+        // Warn if we have more counts than columns
+        if (counts.length > columnLengths.length) {
+          console.log(`  Warning: Row ${firstChar} has ${counts.length} counts but only ${columnLengths.length} columns defined`);
+        }
       }
 
       console.log('Final parsed data:', hintsData);
