@@ -24,22 +24,12 @@ const HintsGrid = ({ hintsData, foundWords }: HintsGridProps) => {
     for (let i = minLength; i <= maxLength; i++) {
       columns.push(i);
     }
-    if (maxLength > 7) {
-      columns.push('8+');
-    }
-    return columns;
+    return columns; // Remove the hardcoded 8+ logic
   };
 
-  const getCountForCell = (letter: string, length: number | string) => {
+  const getCountForCell = (letter: string, length: number) => {
     if (!hintsData[letter]) return 0;
-    
-    if (length === '8+') {
-      return Object.entries(hintsData[letter])
-        .filter(([len]) => Number(len) >= 8)
-        .reduce((sum, [, count]) => sum + count, 0);
-    }
-    
-    return hintsData[letter][length as number] || 0;
+    return hintsData[letter][length] || 0;
   };
 
   const getTotalForLetter = (letter: string) => {
@@ -47,7 +37,7 @@ const HintsGrid = ({ hintsData, foundWords }: HintsGridProps) => {
     return Object.values(hintsData[letter]).reduce((sum, count) => sum + count, 0);
   };
 
-  const getTotalForLength = (length: number | string) => {
+  const getTotalForLength = (length: number) => {
     return letters.reduce((sum, letter) => sum + getCountForCell(letter, length), 0);
   };
 
