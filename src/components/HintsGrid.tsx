@@ -14,18 +14,15 @@ interface HintsGridProps {
 
 const HintsGrid = ({ hintsData, foundWords }: HintsGridProps) => {
   const letters = Object.keys(hintsData).sort();
-  const maxLength = Math.max(...Object.values(hintsData).flatMap(letterData => 
-    Object.keys(letterData).map(Number)
-  ));
-  const minLength = 4;
 
-  const getLengthColumns = () => {
-    const columns = [];
-    for (let i = minLength; i <= maxLength; i++) {
-      columns.push(i);
-    }
-    return columns; // Remove the hardcoded 8+ logic
-  };
+  // Determine columns dynamically from parsed data (union of all lengths present)
+  const lengthColumns = Array.from(
+    new Set(
+      Object.values(hintsData).flatMap((letterData) =>
+        Object.keys(letterData).map(Number)
+      )
+    )
+  ).sort((a, b) => a - b);
 
   const getCountForCell = (letter: string, length: number) => {
     if (!hintsData[letter]) return 0;
@@ -41,7 +38,7 @@ const HintsGrid = ({ hintsData, foundWords }: HintsGridProps) => {
     return letters.reduce((sum, letter) => sum + getCountForCell(letter, length), 0);
   };
 
-  const lengthColumns = getLengthColumns();
+  
 
   return (
     <Card className="p-3 sm:p-6 bg-slate-800/60 border-slate-700/50">
