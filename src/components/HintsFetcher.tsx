@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Globe, Download, AlertCircle, CheckCircle } from 'lucide-react';
+import { FileText, Download, AlertCircle, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface HintsData {
@@ -17,7 +17,7 @@ interface HintsFetcherProps {
 }
 
 const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
-  const [url, setUrl] = useState('');
+  const [hintsText, setHintsText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [lastFetched, setLastFetched] = useState<string | null>(null);
   const { toast } = useToast();
@@ -63,26 +63,11 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
     }
   };
 
-  // CORS-safe fetch via Jina AI Reader proxy
-  const fetchTextViaProxy = async (rawUrl: string): Promise<string> => {
-    const proxied = 'https://r.jina.ai/http://' + rawUrl.replace(/^https?:\/\//, '');
-    const res = await fetch(proxied, { headers: { Accept: 'text/plain' } });
-    if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
-    return await res.text();
-  };
-
-  // If user pastes a NYTimes forum URL with a date, derive the matching nytbee.com date page
-  const deriveNytbeeUrl = (nytimesUrl: string): string | null => {
-    const m = nytimesUrl.match(/nytimes\.com\/(\d{4})\/(\d{2})\/(\d{2})\/crosswords\/spelling-bee-forum/i);
-    if (!m) return null;
-    const [, y, mm, dd] = m;
-    return `https://nytbee.com/${y}/${mm}/${dd}`;
-  };
-  const fetchHints = async () => {
-    if (!url.trim()) {
+  const parseHints = async () => {
+    if (!hintsText.trim()) {
       toast({
-        title: "URL Required",
-        description: "Please enter the URL for today's hints page.",
+        title: "Text Required",
+        description: "Please paste the hints table text.",
         variant: "destructive",
       });
       return;
@@ -91,34 +76,12 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
     setIsLoading(true);
 
     try {
-      const inputUrl = url.trim();
-      const candidates: string[] = [];
-
-      const derived = deriveNytbeeUrl(inputUrl);
-      if (derived) candidates.push(derived);
-      candidates.push(inputUrl);
-
-      let parsed: { hintsData: HintsData; totalWords: number } | null = null;
-      let sourceUsed = "";
-
-      for (const src of candidates) {
-        try {
-          const text = await fetchTextViaProxy(src);
-          parsed = parseHintsFromContent(text);
-          if (parsed) {
-            sourceUsed = src;
-            break;
-          }
-        } catch (e) {
-          console.warn("Fetch/parse failed for", src, e);
-        }
-      }
+      const parsed = parseHintsFromContent(hintsText.trim());
 
       if (!parsed) {
         toast({
           title: "Could not parse hints",
-          description:
-            "We couldn't find a recognizable hints grid on that page. Try a nytbee.com daily page for full counts.",
+          description: "We couldn't find a recognizable hints grid in the pasted text. Make sure it includes letter rows with word counts.",
           variant: "destructive",
         });
         return;
@@ -128,74 +91,55 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
       setLastFetched(new Date().toLocaleString());
       toast({
         title: "Hints Loaded!",
-        description: `Loaded ${parsed.totalWords} total words from ${sourceUsed.includes("nytbee.com") ? "nytbee.com" : "the provided URL"}.`,
+        description: `Loaded ${parsed.totalWords} total words from the pasted text.`,
       });
     } catch (error) {
-      console.error("Error fetching hints:", error);
+      console.error("Error parsing hints:", error);
       toast({
         title: "Error Loading Hints",
-        description: "Could not fetch hints data. Please check the URL and try again.",
+        description: "Could not parse hints data. Please check the format and try again.",
         variant: "destructive",
       });
     } finally {
       setIsLoading(false);
     }
   };
-  const loadTodaysHints = () => {
-    // Generate today's likely URL pattern
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const day = String(today.getDate()).padStart(2, '0');
-    
-    // Common patterns for hints pages
-    const possibleUrl = `https://nytbee.com/${year}/${month}/${day}`;
-    setUrl(possibleUrl);
-  };
 
   return (
     <Card className="p-6 bg-gradient-to-br from-honeycomb/5 to-wax/30 border-honeycomb/20">
       <div className="mb-4">
         <h2 className="text-2xl font-bold text-foreground mb-2 flex items-center gap-2">
-          <Globe className="h-6 w-6 text-honeycomb" />
+          <FileText className="h-6 w-6 text-honeycomb" />
           Load Hints Data
         </h2>
         <p className="text-muted-foreground">
-          Enter the URL for today's NYT Spelling Bee hints page
+          Paste the hints table from the NYT Spelling Bee forum page
         </p>
       </div>
 
       <div className="space-y-4">
-        <div className="flex gap-2">
-          <Input
-            placeholder="https://nytbee.com/2024/01/15 or similar hints page URL"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            className="flex-1"
-          />
-          <Button
-            variant="outline"
-            onClick={loadTodaysHints}
-            className="border-honeycomb/50 hover:bg-honeycomb/10"
-          >
-            Today
-          </Button>
-        </div>
+        <Textarea
+          placeholder="Paste the hints table here (e.g., A 3 2 1...)"
+          value={hintsText}
+          onChange={(e) => setHintsText(e.target.value)}
+          className="min-h-[120px] font-mono text-sm"
+          rows={6}
+        />
 
         <Button
-          onClick={fetchHints}
-          disabled={isLoading || !url.trim()}
+          onClick={parseHints}
+          disabled={isLoading || !hintsText.trim()}
           className="w-full bg-honeycomb hover:bg-honeycomb-dark text-foreground"
         >
           {isLoading ? (
             <>
               <div className="animate-spin rounded-full h-4 w-4 border-2 border-foreground border-t-transparent mr-2"></div>
-              Loading Hints...
+              Parsing Hints...
             </>
           ) : (
             <>
               <Download className="h-4 w-4 mr-2" />
-              Load Hints Data
+              Parse Hints Data
             </>
           )}
         </Button>
@@ -213,11 +157,11 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
           <div className="flex items-start gap-2">
             <AlertCircle className="h-4 w-4 text-muted-foreground mt-0.5" />
             <div className="text-sm text-muted-foreground">
-              <p className="font-medium mb-1">Supported Hints Pages:</p>
+              <p className="font-medium mb-1">Expected Format:</p>
               <ul className="text-xs space-y-1">
-                <li>• nytbee.com daily pages</li>
-                <li>• sbhints.com pages</li>
-                <li>• Any page with structured hints data</li>
+                <li>• Each line should start with a letter (A, B, C, etc.)</li>
+                <li>• Followed by word counts for different lengths</li>
+                <li>• Example: "A 3 2 1" means 3 four-letter words, 2 five-letter words, 1 six-letter word</li>
               </ul>
             </div>
           </div>
