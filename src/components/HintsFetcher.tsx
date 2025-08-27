@@ -73,6 +73,22 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
       const lines = content.split("\n").map((l) => l.trim());
       
       console.log('Parsing hints from lines:', lines); // Debug log
+      
+      // Try to find header row to understand column structure
+      let columnLengths: number[] = [4, 5, 6, 7, 8, 9, 10, 11, 12]; // Default assumption
+      
+      // Look for a header row with numbers
+      for (const line of lines) {
+        const headerMatch = line.match(/^\s*(?:Letter|[A-Z])\s+(.+)$/i);
+        if (headerMatch) {
+          const possibleLengths = headerMatch[1].match(/\d+/g);
+          if (possibleLengths && possibleLengths.length > 2) {
+            columnLengths = possibleLengths.map(Number);
+            console.log('Found column lengths from header:', columnLengths);
+            break;
+          }
+        }
+      }
 
       for (const raw of lines) {
         const line = raw.replace(/\u00A0/g, " ").toUpperCase();
@@ -82,14 +98,17 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
           const letter = letterMatch[1].toUpperCase();
           const numbers = (letterMatch[2].match(/\d+/g) || []).map(Number);
           console.log(`Letter ${letter} found numbers:`, numbers); // Debug log
+          console.log(`Using column lengths:`, columnLengths.slice(0, numbers.length)); // Debug log
           
           if (numbers.length) {
             hintsData[letter] = {};
             numbers.forEach((count, idx) => {
-              const length = 4 + idx; // columns usually start at 4 letters
+              // Use the actual column length instead of assuming 4+idx
+              const length = columnLengths[idx] || (4 + idx); // Fallback to old logic
               if (count > 0) {
                 hintsData[letter][length] = count;
                 totalWords += count;
+                console.log(`  Added ${count} words of length ${length} for letter ${letter}`);
               }
             });
           }
