@@ -30,17 +30,26 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
     const lines = text.split('\n').map(line => line.trim());
     
     for (const line of lines) {
-      // Try to match patterns like "AB: 5" or "AB 5" or "AB-5"
-      const match = line.match(/([A-Z]{2})[:\s\-]+(\d+)/i);
-      if (match) {
-        const combo = match[1].toUpperCase();
-        const count = parseInt(match[2], 10);
-        if (combo.length === 2 && count > 0) {
-          results.push({ combo, count });
-        }
+      // First try to find ALL patterns like "AB: 5" or "AB 5" or "AB-5" in the line
+      const matches = [...line.matchAll(/([A-Z]{2})[:\s\-]+(\d+)/gi)];
+      
+      if (matches.length > 0) {
+        matches.forEach(match => {
+          const combo = match[1].toUpperCase();
+          const count = parseInt(match[2], 10);
+          if (combo.length === 2 && count > 0) {
+            // Check if this combo already exists, if so, update the count
+            const existingIndex = results.findIndex(r => r.combo === combo);
+            if (existingIndex >= 0) {
+              results[existingIndex].count += count;
+            } else {
+              results.push({ combo, count });
+            }
+          }
+        });
       } else {
-        // Fallback: just extract 2-letter combos without counts
-        const words = line.split(/[\s,]+/)
+        // Fallback: extract ALL 2-letter combos from the line
+        const words = line.split(/[\s,;|]+/)
           .map(word => word.replace(/[^A-Za-z]/g, '').toUpperCase())
           .filter(word => word.length === 2 && /^[A-Z]+$/.test(word));
         
