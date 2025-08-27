@@ -2,7 +2,8 @@ import { useState, useMemo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { RotateCcw, Target } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { RotateCcw, Target, Plus } from 'lucide-react';
 import HintsGrid from './HintsGrid';
 import ImageUpload from './ImageUpload';
 import HintsFetcher from './HintsFetcher';
@@ -18,6 +19,7 @@ const WordTracker = () => {
   const [hintsData, setHintsData] = useState<HintsData>({});
   const [totalPossibleWords, setTotalPossibleWords] = useState(0);
   const [hasLoadedHints, setHasLoadedHints] = useState(false);
+  const [manualWord, setManualWord] = useState('');
 
   const remainingHintsData: HintsData = useMemo(() => {
     const remaining: HintsData = {};
@@ -55,6 +57,19 @@ const WordTracker = () => {
       newWords.forEach(word => updated.add(word.toUpperCase()));
       return updated;
     });
+  };
+
+  const addManualWord = () => {
+    if (manualWord.trim()) {
+      handleWordsFound([manualWord.trim()]);
+      setManualWord('');
+    }
+  };
+
+  const handleManualWordKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      addManualWord();
+    }
   };
 
   const resetProgress = () => {
@@ -125,23 +140,6 @@ const WordTracker = () => {
               {/* Image Upload */}
               <div>
                 <ImageUpload onWordsExtracted={handleWordsFound} />
-                
-                {foundWords.size > 0 && (
-                  <Card className="mt-6 p-4 bg-background border-honeycomb/20">
-                    <h3 className="font-semibold text-foreground mb-3">Found Words ({foundWords.size})</h3>
-                    <div className="flex flex-wrap gap-2">
-                      {Array.from(foundWords).map(word => (
-                        <Badge 
-                          key={word} 
-                          variant="secondary"
-                          className="bg-honeycomb/20 text-foreground hover:bg-honeycomb/30"
-                        >
-                          {word}
-                        </Badge>
-                      ))}
-                    </div>
-                  </Card>
-                )}
               </div>
 
               {/* Hints Grid */}
@@ -167,6 +165,46 @@ const WordTracker = () => {
                     </Button>
                   </div>
                 </Card>
+
+                {/* Manual Word Input */}
+                <Card className="mt-6 p-4 bg-background border-honeycomb/20">
+                  <h3 className="font-semibold text-foreground mb-3">Add Word Manually</h3>
+                  <div className="flex gap-2">
+                    <Input
+                      type="text"
+                      placeholder="Enter a word you found..."
+                      value={manualWord}
+                      onChange={(e) => setManualWord(e.target.value)}
+                      onKeyPress={handleManualWordKeyPress}
+                      className="flex-1 border-honeycomb/30 focus:border-honeycomb/50"
+                    />
+                    <Button
+                      onClick={addManualWord}
+                      size="sm"
+                      className="bg-honeycomb hover:bg-honeycomb-dark text-foreground"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </Card>
+
+                {/* Found Words Display */}
+                {foundWords.size > 0 && (
+                  <Card className="mt-6 p-4 bg-background border-honeycomb/20">
+                    <h3 className="font-semibold text-foreground mb-3">Found Words ({foundWords.size})</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {Array.from(foundWords).sort().map(word => (
+                        <Badge 
+                          key={word} 
+                          variant="secondary"
+                          className="bg-honeycomb/20 text-foreground hover:bg-honeycomb/30"
+                        >
+                          {word}
+                        </Badge>
+                      ))}
+                    </div>
+                  </Card>
+                )}
               </div>
             </div>
 
