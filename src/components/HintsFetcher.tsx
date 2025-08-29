@@ -17,8 +17,7 @@ interface HintsFetcherProps {
 }
 
 const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
-  const [hintsText, setHintsText] = useState('');
-  const [twoLetterText, setTwoLetterText] = useState('');
+  const [combinedText, setCombinedText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [lastFetched, setLastFetched] = useState<string | null>(null);
   const { toast } = useToast();
@@ -121,11 +120,38 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
     }
   };
 
+  // Function to separate combined text into hints and two-letter data
+  const separateContent = (text: string): { hintsText: string; twoLetterText: string } => {
+    const lines = text.split('\n').map(line => line.trim());
+    const hintsLines: string[] = [];
+    const twoLetterLines: string[] = [];
+    
+    for (const line of lines) {
+      // Check if line looks like a hints table row (starts with letter followed by colon)
+      if (/^[a-z]:\s*[\d\-\s]+$/i.test(line) || /PANGRAMS?:\s*\d+/i.test(line) || /WORDS:\s*\d+/i.test(line)) {
+        hintsLines.push(line);
+      }
+      // Check if line contains two-letter patterns
+      else if (/([A-Z]{2})[:\s\-]+\d+/i.test(line) || /^[A-Z]{2}(\s+[A-Z]{2})*$/i.test(line)) {
+        twoLetterLines.push(line);
+      }
+      // If it's not empty and doesn't match either pattern, add to hints as fallback
+      else if (line.length > 0) {
+        hintsLines.push(line);
+      }
+    }
+    
+    return {
+      hintsText: hintsLines.join('\n'),
+      twoLetterText: twoLetterLines.join('\n')
+    };
+  };
+
   const parseHints = async () => {
-    if (!hintsText.trim()) {
+    if (!combinedText.trim()) {
       toast({
-        title: "Text Required",
-        description: "Please paste the hints table text.",
+        title: "Text Required", 
+        description: "Please paste the hints table and optional two-letter data.",
         variant: "destructive",
       });
       return;
@@ -134,8 +160,9 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
     setIsLoading(true);
 
     try {
-      const parsed = parseHintsFromContent(hintsText.trim());
-      const twoLetterList = parseTwoLetterList(twoLetterText.trim());
+      const { hintsText, twoLetterText } = separateContent(combinedText.trim());
+      const parsed = parseHintsFromContent(hintsText);
+      const twoLetterList = parseTwoLetterList(twoLetterText);
 
       if (!parsed) {
         toast({
@@ -177,36 +204,22 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
       </div>
 
       <div className="space-y-4">
-        <div className="grid grid-cols-1 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-200 mb-2">
-              Main Hints Table (4+ letters)
-            </label>
-            <Textarea
-              placeholder="Paste main hints table here (e.g., A 3 2 1...)"
-              value={hintsText}
-              onChange={(e) => setHintsText(e.target.value)}
-              className="min-h-[120px] font-mono text-sm bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-400"
-              rows={6}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-200 mb-2">
-              Two Letter List (optional)
-            </label>
-            <Textarea
-              placeholder="Paste 2-letter word list here (e.g., AB, AC, AD...)"
-              value={twoLetterText}
-              onChange={(e) => setTwoLetterText(e.target.value)}
-              className="min-h-[120px] font-mono text-sm bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-400"
-              rows={6}
-            />
-          </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-200 mb-2">
+            Combined Hints & Two-Letter Data
+          </label>
+          <Textarea
+            placeholder="Paste both hints table and two-letter data here. The parser will automatically separate them..."
+            value={combinedText}
+            onChange={(e) => setCombinedText(e.target.value)}
+            className="min-h-[200px] font-mono text-sm bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-400"
+            rows={10}
+          />
         </div>
 
         <Button
           onClick={parseHints}
-          disabled={isLoading || !hintsText.trim()}
+          disabled={isLoading || !combinedText.trim()}
           className="w-full bg-blue-600 hover:bg-blue-700 text-white"
         >
           {isLoading ? (
