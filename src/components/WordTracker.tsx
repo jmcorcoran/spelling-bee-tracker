@@ -151,6 +151,14 @@ const WordTracker = () => {
     });
   };
 
+  const removeAllValidWords = () => {
+    setFoundWords(new Set());
+  };
+
+  const removeAllInvalidWords = () => {
+    setInvalidWords(new Set());
+  };
+
   const progressPercentage = totalPossibleWords > 0 
     ? Math.round((foundWords.size / totalPossibleWords) * 100) 
     : 0;
@@ -297,7 +305,17 @@ const WordTracker = () => {
                 {/* Found Words Display */}
                 {foundWords.size > 0 && (
                   <Card className="mt-4 sm:mt-6 p-3 sm:p-4 bg-slate-800/60 border-slate-700/50">
-                    <h3 className="font-semibold text-white mb-3 text-sm sm:text-base">Valid Words ({foundWords.size})</h3>
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-semibold text-white text-sm sm:text-base">Valid Words ({foundWords.size})</h3>
+                      <Button
+                        onClick={removeAllValidWords}
+                        size="sm"
+                        variant="outline"
+                        className="text-xs border-slate-600 bg-slate-700 text-slate-300 hover:bg-slate-600 hover:border-slate-500"
+                      >
+                        Remove All
+                      </Button>
+                    </div>
                     <div className="flex flex-wrap gap-2">
                       {Array.from(foundWords).sort().map(word => (
                         <div 
@@ -320,7 +338,17 @@ const WordTracker = () => {
                 {/* Invalid Words Display */}
                 {invalidWords.size > 0 && (
                   <Card className="mt-4 sm:mt-6 p-3 sm:p-4 bg-red-900/20 border-red-700/50">
-                    <h3 className="font-semibold text-red-300 mb-3 text-sm sm:text-base">Invalid Words ({invalidWords.size})</h3>
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-semibold text-red-300 text-sm sm:text-base">Invalid Words ({invalidWords.size})</h3>
+                      <Button
+                        onClick={removeAllInvalidWords}
+                        size="sm"
+                        variant="outline"
+                        className="text-xs border-red-600 bg-red-900/40 text-red-300 hover:bg-red-800/40 hover:border-red-500"
+                      >
+                        Remove All
+                      </Button>
+                    </div>
                     <p className="text-xs text-red-400 mb-3">These words contain letters not in the allowed set:</p>
                     <div className="flex flex-wrap gap-2">
                       {Array.from(invalidWords).sort().map(word => (
