@@ -17,6 +17,7 @@ interface HintsData {
 const WordTracker = () => {
   const [foundWords, setFoundWords] = useState<Set<string>>(new Set());
   const [invalidWords, setInvalidWords] = useState<Set<string>>(new Set());
+  const [foundPangrams, setFoundPangrams] = useState<Set<string>>(new Set());
   const [allowedLetters, setAllowedLetters] = useState<Set<string>>(new Set());
   const [hintsData, setHintsData] = useState<HintsData>({});
   const [totalPossibleWords, setTotalPossibleWords] = useState(0);
@@ -71,6 +72,13 @@ const WordTracker = () => {
     return [...wordLetters].every(letter => allowedLetters.has(letter));
   };
 
+  // Check if a word is a pangram (uses all allowed letters)
+  const isPangram = (word: string): boolean => {
+    if (allowedLetters.size === 0) return false; // No letters set
+    const wordLetters = new Set(word.toUpperCase().split(''));
+    return allowedLetters.size === [...allowedLetters].filter(letter => wordLetters.has(letter)).length;
+  };
+
   const handleHintsLoaded = (newHintsData: HintsData, totalWords: number, newTwoLetterList: { combo: string; count: number }[], pangramCount: number, allowedLettersList: string[]) => {
     setHintsData(newHintsData);
     setTotalPossibleWords(totalWords);
@@ -80,16 +88,21 @@ const WordTracker = () => {
     setHasLoadedHints(true);
     setFoundWords(new Set()); // Reset found words when loading new hints
     setInvalidWords(new Set()); // Reset invalid words when loading new hints
+    setFoundPangrams(new Set()); // Reset found pangrams when loading new hints
   };
 
   const handleWordsFound = (newWords: string[]) => {
     const validWords: string[] = [];
     const invalidWords: string[] = [];
+    const newPangrams: string[] = [];
     
     newWords.forEach(word => {
       const upperWord = word.toUpperCase();
       if (isValidWord(upperWord)) {
         validWords.push(upperWord);
+        if (isPangram(upperWord)) {
+          newPangrams.push(upperWord);
+        }
       } else {
         invalidWords.push(upperWord);
       }
@@ -99,6 +112,14 @@ const WordTracker = () => {
       setFoundWords(prev => {
         const updated = new Set(prev);
         validWords.forEach(word => updated.add(word));
+        return updated;
+      });
+    }
+
+    if (newPangrams.length > 0) {
+      setFoundPangrams(prev => {
+        const updated = new Set(prev);
+        newPangrams.forEach(word => updated.add(word));
         return updated;
       });
     }
@@ -128,6 +149,7 @@ const WordTracker = () => {
   const resetProgress = () => {
     setFoundWords(new Set());
     setInvalidWords(new Set());
+    setFoundPangrams(new Set());
     setHintsData({});
     setTotalPossibleWords(0);
     setTwoLetterList([]);
@@ -137,6 +159,11 @@ const WordTracker = () => {
 
   const removeWord = (wordToRemove: string) => {
     setFoundWords(prev => {
+      const updated = new Set(prev);
+      updated.delete(wordToRemove);
+      return updated;
+    });
+    setFoundPangrams(prev => {
       const updated = new Set(prev);
       updated.delete(wordToRemove);
       return updated;
@@ -153,6 +180,7 @@ const WordTracker = () => {
 
   const removeAllValidWords = () => {
     setFoundWords(new Set());
+    setFoundPangrams(new Set());
   };
 
   const removeAllInvalidWords = () => {
@@ -193,7 +221,7 @@ const WordTracker = () => {
               </div>
               <div className="h-6 sm:h-8 w-px bg-slate-600"></div>
               <div className="text-center">
-                <div className="text-lg sm:text-2xl font-bold text-yellow-400">{pangrams}</div>
+                <div className="text-lg sm:text-2xl font-bold text-yellow-400">{foundPangrams.size}/{pangrams}</div>
                 <div className="text-xs sm:text-sm text-slate-400">Pangrams</div>
               </div>
               <div className="h-6 sm:h-8 w-px bg-slate-600"></div>
@@ -317,20 +345,28 @@ const WordTracker = () => {
                       </Button>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      {Array.from(foundWords).sort().map(word => (
-                        <div 
-                          key={word} 
-                          className="flex items-center gap-1 bg-slate-700/60 text-slate-200 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm border border-slate-600/50"
-                        >
-                          <span>{word}</span>
-                          <button
-                            onClick={() => removeWord(word)}
-                            className="ml-1 p-0.5 hover:bg-red-600/50 rounded-full transition-colors"
+                      {Array.from(foundWords).sort().map(word => {
+                        const isWordPangram = foundPangrams.has(word);
+                        return (
+                          <div 
+                            key={word} 
+                            className={`flex items-center gap-1 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm border ${
+                              isWordPangram 
+                                ? 'bg-yellow-900/40 text-yellow-200 border-yellow-600/50' 
+                                : 'bg-slate-700/60 text-slate-200 border-slate-600/50'
+                            }`}
                           >
-                            <X className="h-2 w-2 sm:h-3 sm:w-3 text-slate-400 hover:text-red-300" />
-                          </button>
-                        </div>
-                      ))}
+                            <span>{word}</span>
+                            {isWordPangram && <span className="text-yellow-400 text-xs">★</span>}
+                            <button
+                              onClick={() => removeWord(word)}
+                              className="ml-1 p-0.5 hover:bg-red-600/50 rounded-full transition-colors"
+                            >
+                              <X className="h-2 w-2 sm:h-3 sm:w-3 text-slate-400 hover:text-red-300" />
+                            </button>
+                          </div>
+                        );
+                      })}
                     </div>
                   </Card>
                 )}
