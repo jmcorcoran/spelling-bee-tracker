@@ -70,9 +70,18 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
       const hintsData: HintsData = {};
       let totalWords = 0;
       let pangrams = 0;
-      const allowedLetters: string[] = [];
+      let allowedLetters: string[] = [];
 
-      const lines = content.split("\n").map((l) => l.trim());
+      const lines = content.split("\n").map((l) => l.trim()).filter(l => l.length > 0);
+
+      // First line should contain the allowed letters (e.g., "k c d e n o u")
+      if (lines.length > 0) {
+        const firstLine = lines[0];
+        // Check if first line looks like space-separated letters
+        if (/^[a-z]\s+[a-z]/.test(firstLine)) {
+          allowedLetters = firstLine.split(/\s+/).map(letter => letter.toUpperCase()).filter(l => /^[A-Z]$/.test(l));
+        }
+      }
 
       for (const raw of lines) {
         const line = raw.replace(/\u00A0/g, " ");
@@ -92,11 +101,6 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
           
           // Skip the totals row (Σ)
           if (letter === 'Σ') continue;
-          
-          // Add letter to allowed letters list
-          if (!allowedLetters.includes(letter)) {
-            allowedLetters.push(letter);
-          }
           
           // Split by tabs or multiple spaces, filter out the final total (Σ column)
           const values = letterMatch[2].split(/\s+/).slice(0, -1); // Remove last element (row total)
@@ -133,8 +137,12 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
     const twoLetterLines: string[] = [];
     
     for (const line of lines) {
+      // Check if line looks like allowed letters (first line with space-separated letters)
+      if (/^[a-z]\s+[a-z]/.test(line)) {
+        hintsLines.push(line);
+      }
       // Check if line looks like a hints table row (starts with letter followed by colon)
-      if (/^[a-z]:\s*[\d\-\s]+$/i.test(line) || /PANGRAMS?:\s*\d+/i.test(line) || /WORDS:\s*\d+/i.test(line)) {
+      else if (/^[a-z]:\s*[\d\-\s]+$/i.test(line) || /PANGRAMS?:\s*\d+/i.test(line) || /WORDS:\s*\d+/i.test(line) || /^\d+\s+\d+/.test(line)) {
         hintsLines.push(line);
       }
       // Check if line contains two-letter patterns
