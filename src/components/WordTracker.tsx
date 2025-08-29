@@ -229,15 +229,6 @@ const WordTracker = () => {
                 <div className="text-lg sm:text-2xl font-bold text-blue-400">{progressPercentage}%</div>
                 <div className="text-xs sm:text-sm text-slate-400">Complete</div>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={resetProgress}
-                className="ml-2 sm:ml-4 border-slate-600 bg-slate-700 text-slate-200 hover:bg-slate-600 hover:border-slate-500 text-xs sm:text-sm"
-              >
-                <RotateCcw className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-                Reset
-              </Button>
             </Card>
           )}
         </div>
