@@ -16,6 +16,8 @@ interface HintsData {
 
 const WordTracker = () => {
   const [foundWords, setFoundWords] = useState<Set<string>>(new Set());
+  const [invalidWords, setInvalidWords] = useState<Set<string>>(new Set());
+  const [allowedLetters, setAllowedLetters] = useState<Set<string>>(new Set());
   const [hintsData, setHintsData] = useState<HintsData>({});
   const [totalPossibleWords, setTotalPossibleWords] = useState(0);
   const [hasLoadedHints, setHasLoadedHints] = useState(false);
@@ -62,6 +64,13 @@ const WordTracker = () => {
 
   const [pangrams, setPangrams] = useState(0);
 
+  // Validation function to check if word contains only allowed letters
+  const isValidWord = (word: string): boolean => {
+    if (allowedLetters.size === 0) return true; // No restrictions set
+    const wordLetters = new Set(word.toUpperCase().split(''));
+    return [...wordLetters].every(letter => allowedLetters.has(letter));
+  };
+
   const handleHintsLoaded = (newHintsData: HintsData, totalWords: number, newTwoLetterList: { combo: string; count: number }[], pangramCount: number) => {
     setHintsData(newHintsData);
     setTotalPossibleWords(totalWords);
@@ -69,14 +78,37 @@ const WordTracker = () => {
     setPangrams(pangramCount);
     setHasLoadedHints(true);
     setFoundWords(new Set()); // Reset found words when loading new hints
+    setInvalidWords(new Set()); // Reset invalid words when loading new hints
   };
 
   const handleWordsFound = (newWords: string[]) => {
-    setFoundWords(prev => {
-      const updated = new Set(prev);
-      newWords.forEach(word => updated.add(word.toUpperCase()));
-      return updated;
+    const validWords: string[] = [];
+    const invalidWords: string[] = [];
+    
+    newWords.forEach(word => {
+      const upperWord = word.toUpperCase();
+      if (isValidWord(upperWord)) {
+        validWords.push(upperWord);
+      } else {
+        invalidWords.push(upperWord);
+      }
     });
+
+    if (validWords.length > 0) {
+      setFoundWords(prev => {
+        const updated = new Set(prev);
+        validWords.forEach(word => updated.add(word));
+        return updated;
+      });
+    }
+
+    if (invalidWords.length > 0) {
+      setInvalidWords(prev => {
+        const updated = new Set(prev);
+        invalidWords.forEach(word => updated.add(word));
+        return updated;
+      });
+    }
   };
 
   const addManualWord = () => {
@@ -94,6 +126,7 @@ const WordTracker = () => {
 
   const resetProgress = () => {
     setFoundWords(new Set());
+    setInvalidWords(new Set());
     setHintsData({});
     setTotalPossibleWords(0);
     setTwoLetterList([]);
@@ -103,6 +136,14 @@ const WordTracker = () => {
 
   const removeWord = (wordToRemove: string) => {
     setFoundWords(prev => {
+      const updated = new Set(prev);
+      updated.delete(wordToRemove);
+      return updated;
+    });
+  };
+
+  const removeInvalidWord = (wordToRemove: string) => {
+    setInvalidWords(prev => {
       const updated = new Set(prev);
       updated.delete(wordToRemove);
       return updated;
@@ -210,6 +251,24 @@ const WordTracker = () => {
                   </Card>
                 )}
 
+                {/* Allowed Letters Input */}
+                <Card className="mt-4 sm:mt-6 p-3 sm:p-4 bg-slate-800/60 border-slate-700/50">
+                  <h3 className="font-semibold text-white mb-3 text-sm sm:text-base">Allowed Letters (Optional)</h3>
+                  <Input
+                    type="text"
+                    placeholder="Enter the 7 allowed letters (e.g., ABCDEFG)"
+                    value={Array.from(allowedLetters).sort().join('')}
+                    onChange={(e) => {
+                      const letters = e.target.value.toUpperCase().split('').filter(c => /[A-Z]/.test(c));
+                      setAllowedLetters(new Set(letters.slice(0, 7))); // Limit to 7 letters
+                    }}
+                    className="bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-400 focus:border-blue-500 text-sm sm:text-base"
+                  />
+                  <p className="text-xs text-slate-400 mt-2">
+                    Set the 7 allowed letters to validate words. Leave empty to accept all words.
+                  </p>
+                </Card>
+
                 {/* Manual Word Input */}
                 <Card className="mt-4 sm:mt-6 p-3 sm:p-4 bg-slate-800/60 border-slate-700/50">
                   <h3 className="font-semibold text-white mb-3 text-sm sm:text-base">Add Word Manually</h3>
@@ -235,7 +294,7 @@ const WordTracker = () => {
                 {/* Found Words Display */}
                 {foundWords.size > 0 && (
                   <Card className="mt-4 sm:mt-6 p-3 sm:p-4 bg-slate-800/60 border-slate-700/50">
-                    <h3 className="font-semibold text-white mb-3 text-sm sm:text-base">Found Words ({foundWords.size})</h3>
+                    <h3 className="font-semibold text-white mb-3 text-sm sm:text-base">Valid Words ({foundWords.size})</h3>
                     <div className="flex flex-wrap gap-2">
                       {Array.from(foundWords).sort().map(word => (
                         <div 
@@ -248,6 +307,30 @@ const WordTracker = () => {
                             className="ml-1 p-0.5 hover:bg-red-600/50 rounded-full transition-colors"
                           >
                             <X className="h-2 w-2 sm:h-3 sm:w-3 text-slate-400 hover:text-red-300" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+                )}
+
+                {/* Invalid Words Display */}
+                {invalidWords.size > 0 && (
+                  <Card className="mt-4 sm:mt-6 p-3 sm:p-4 bg-red-900/20 border-red-700/50">
+                    <h3 className="font-semibold text-red-300 mb-3 text-sm sm:text-base">Invalid Words ({invalidWords.size})</h3>
+                    <p className="text-xs text-red-400 mb-3">These words contain letters not in the allowed set:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {Array.from(invalidWords).sort().map(word => (
+                        <div 
+                          key={word} 
+                          className="flex items-center gap-1 bg-red-900/40 text-red-200 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm border border-red-600/50"
+                        >
+                          <span>{word}</span>
+                          <button
+                            onClick={() => removeInvalidWord(word)}
+                            className="ml-1 p-0.5 hover:bg-red-600/50 rounded-full transition-colors"
+                          >
+                            <X className="h-2 w-2 sm:h-3 sm:w-3 text-red-400 hover:text-red-300" />
                           </button>
                         </div>
                       ))}
