@@ -71,11 +71,12 @@ const WordTracker = () => {
     return [...wordLetters].every(letter => allowedLetters.has(letter));
   };
 
-  const handleHintsLoaded = (newHintsData: HintsData, totalWords: number, newTwoLetterList: { combo: string; count: number }[], pangramCount: number) => {
+  const handleHintsLoaded = (newHintsData: HintsData, totalWords: number, newTwoLetterList: { combo: string; count: number }[], pangramCount: number, allowedLettersList: string[]) => {
     setHintsData(newHintsData);
     setTotalPossibleWords(totalWords);
     setTwoLetterList(newTwoLetterList);
     setPangrams(pangramCount);
+    setAllowedLetters(new Set(allowedLettersList));
     setHasLoadedHints(true);
     setFoundWords(new Set()); // Reset found words when loading new hints
     setInvalidWords(new Set()); // Reset invalid words when loading new hints
@@ -251,23 +252,25 @@ const WordTracker = () => {
                   </Card>
                 )}
 
-                {/* Allowed Letters Input */}
-                <Card className="mt-4 sm:mt-6 p-3 sm:p-4 bg-slate-800/60 border-slate-700/50">
-                  <h3 className="font-semibold text-white mb-3 text-sm sm:text-base">Allowed Letters (Optional)</h3>
-                  <Input
-                    type="text"
-                    placeholder="Enter the 7 allowed letters (e.g., ABCDEFG)"
-                    value={Array.from(allowedLetters).sort().join('')}
-                    onChange={(e) => {
-                      const letters = e.target.value.toUpperCase().split('').filter(c => /[A-Z]/.test(c));
-                      setAllowedLetters(new Set(letters.slice(0, 7))); // Limit to 7 letters
-                    }}
-                    className="bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-400 focus:border-blue-500 text-sm sm:text-base"
-                  />
-                  <p className="text-xs text-slate-400 mt-2">
-                    Set the 7 allowed letters to validate words. Leave empty to accept all words.
-                  </p>
-                </Card>
+                {/* Allowed Letters Display */}
+                {allowedLetters.size > 0 && (
+                  <Card className="mt-4 sm:mt-6 p-3 sm:p-4 bg-slate-800/60 border-slate-700/50">
+                    <h3 className="font-semibold text-white mb-3 text-sm sm:text-base">Allowed Letters</h3>
+                    <div className="flex flex-wrap gap-2 mb-2">
+                      {Array.from(allowedLetters).sort().map(letter => (
+                        <div 
+                          key={letter} 
+                          className="bg-blue-900/40 text-blue-200 px-3 py-1 rounded-full text-sm border border-blue-600/50"
+                        >
+                          {letter}
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs text-slate-400">
+                      Words containing letters outside this set will be marked as invalid.
+                    </p>
+                  </Card>
+                )}
 
                 {/* Manual Word Input */}
                 <Card className="mt-4 sm:mt-6 p-3 sm:p-4 bg-slate-800/60 border-slate-700/50">

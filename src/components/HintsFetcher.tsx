@@ -13,7 +13,7 @@ interface HintsData {
 }
 
 interface HintsFetcherProps {
-  onHintsLoaded: (hintsData: HintsData, totalWords: number, twoLetterList: { combo: string; count: number }[], pangrams: number) => void;
+  onHintsLoaded: (hintsData: HintsData, totalWords: number, twoLetterList: { combo: string; count: number }[], pangrams: number, allowedLetters: string[]) => void;
 }
 
 const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
@@ -65,11 +65,12 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
   // Parse hints data from page text (expects rows like "a: 2 4 2 - - - - 8")
   const parseHintsFromContent = (
     content: string
-  ): { hintsData: HintsData; totalWords: number; pangrams: number } | null => {
+  ): { hintsData: HintsData; totalWords: number; pangrams: number; allowedLetters: string[] } | null => {
     try {
       const hintsData: HintsData = {};
       let totalWords = 0;
       let pangrams = 0;
+      const allowedLetters: string[] = [];
 
       const lines = content.split("\n").map((l) => l.trim());
 
@@ -92,6 +93,11 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
           // Skip the totals row (Σ)
           if (letter === 'Σ') continue;
           
+          // Add letter to allowed letters list
+          if (!allowedLetters.includes(letter)) {
+            allowedLetters.push(letter);
+          }
+          
           // Split by tabs or multiple spaces, filter out the final total (Σ column)
           const values = letterMatch[2].split(/\s+/).slice(0, -1); // Remove last element (row total)
           
@@ -113,7 +119,7 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
         return null; // don't fabricate data; signal parse failure
       }
 
-      return { hintsData, totalWords, pangrams };
+      return { hintsData, totalWords, pangrams, allowedLetters };
     } catch (error) {
       console.error("Error parsing hints data:", error);
       return null;
@@ -173,7 +179,7 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
         return;
       }
 
-      onHintsLoaded(parsed.hintsData, parsed.totalWords, twoLetterList, parsed.pangrams);
+      onHintsLoaded(parsed.hintsData, parsed.totalWords, twoLetterList, parsed.pangrams, parsed.allowedLetters);
       setLastFetched(new Date().toLocaleString());
       toast({
         title: "Hints Loaded!",
