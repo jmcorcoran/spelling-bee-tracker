@@ -10,6 +10,7 @@ interface HintsData {
 
 interface GameSessionData {
   sessionId: string | null;
+  sessionDate: string | null;
   allowedLetters: string[];
   targetWords: number;
   targetPoints: number;
@@ -91,6 +92,7 @@ export const useGameSession = () => {
 
       return {
         sessionId: session.id,
+        sessionDate: session.created_at,
         allowedLetters: session.allowed_letters.split('').map((l: string) => l.toUpperCase()),
         targetWords: session.target_words,
         targetPoints: session.target_points,
