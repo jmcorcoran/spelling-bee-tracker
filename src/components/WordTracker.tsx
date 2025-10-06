@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -7,6 +7,8 @@ import { Target, Plus, X, RotateCcw } from 'lucide-react';
 import HintsGrid from './HintsGrid';
 import ImageUpload from './ImageUpload';
 import HintsFetcher from './HintsFetcher';
+import { useGameSession } from '@/hooks/useGameSession';
+import { useToast } from '@/hooks/use-toast';
 
 interface HintsData {
   [letter: string]: {
@@ -24,6 +26,52 @@ const WordTracker = () => {
   const [hasLoadedHints, setHasLoadedHints] = useState(false);
   const [manualWord, setManualWord] = useState('');
   const [twoLetterList, setTwoLetterList] = useState<{ combo: string; count: number }[]>([]);
+  const [pangrams, setPangrams] = useState(0);
+  
+  const { toast } = useToast();
+  const {
+    isLoading: sessionLoading,
+    loadGameSession,
+    saveGameSession,
+    addFoundWord,
+    removeFoundWord,
+    clearAllWords,
+    deleteSession,
+  } = useGameSession();
+
+  // Load existing session on mount
+  useEffect(() => {
+    const loadExistingSession = async () => {
+      if (sessionLoading) return;
+
+      const sessionData = await loadGameSession();
+      if (sessionData) {
+        setAllowedLetters(new Set(sessionData.allowedLetters));
+        setTotalPossibleWords(sessionData.targetWords);
+        setPangrams(sessionData.targetPangrams);
+        setTwoLetterList(sessionData.twoLetterList);
+        setFoundWords(new Set(sessionData.foundWords));
+        setInvalidWords(new Set(sessionData.invalidWords));
+        
+        // Calculate pangrams from found words
+        const loadedPangrams = sessionData.foundWords.filter(word => {
+          const wordLetters = new Set(word.toUpperCase().split(''));
+          return sessionData.allowedLetters.length === 
+            sessionData.allowedLetters.filter(letter => wordLetters.has(letter)).length;
+        });
+        setFoundPangrams(new Set(loadedPangrams));
+        
+        setHasLoadedHints(sessionData.targetWords > 0);
+        
+        toast({
+          title: "Session Restored",
+          description: `Loaded ${sessionData.foundWords.length} words from your previous session`,
+        });
+      }
+    };
+
+    loadExistingSession();
+  }, [sessionLoading]);
 
   const remainingHintsData: HintsData = useMemo(() => {
     const remaining: HintsData = {};
@@ -63,8 +111,6 @@ const WordTracker = () => {
     });
   }, [twoLetterList, foundWords]);
 
-  const [pangrams, setPangrams] = useState(0);
-
   // Validation function to check if word contains only allowed letters
   const isValidWord = (word: string): boolean => {
     if (allowedLetters.size === 0) return true; // No restrictions set
@@ -79,21 +125,27 @@ const WordTracker = () => {
     return allowedLetters.size === [...allowedLetters].filter(letter => wordLetters.has(letter)).length;
   };
 
-  const handleHintsLoaded = (newHintsData: HintsData, totalWords: number, newTwoLetterList: { combo: string; count: number }[], pangramCount: number, allowedLettersList: string[]) => {
+  const handleHintsLoaded = async (newHintsData: HintsData, totalWords: number, newTwoLetterList: { combo: string; count: number }[], pangramCount: number, allowedLettersList: string[]) => {
     setHintsData(newHintsData);
     setTotalPossibleWords(totalWords);
     setTwoLetterList(newTwoLetterList);
     setPangrams(pangramCount);
     setAllowedLetters(new Set(allowedLettersList));
     setHasLoadedHints(true);
-    setFoundWords(new Set()); // Reset found words when loading new hints
-    setInvalidWords(new Set()); // Reset invalid words when loading new hints
-    setFoundPangrams(new Set()); // Reset found pangrams when loading new hints
+    
+    // Clear local state
+    setFoundWords(new Set());
+    setInvalidWords(new Set());
+    setFoundPangrams(new Set());
+    
+    // Clear database and save new session
+    await clearAllWords();
+    await saveGameSession(allowedLettersList, totalWords, pangramCount, newTwoLetterList, newHintsData);
   };
 
-  const handleWordsFound = (newWords: string[]) => {
+  const handleWordsFound = async (newWords: string[]) => {
     const validWords: string[] = [];
-    const invalidWords: string[] = [];
+    const invalidWordsData: string[] = [];
     const newPangrams: string[] = [];
     
     newWords.forEach(word => {
@@ -104,14 +156,19 @@ const WordTracker = () => {
           newPangrams.push(upperWord);
         }
       } else {
-        invalidWords.push(upperWord);
+        invalidWordsData.push(upperWord);
       }
     });
 
     if (validWords.length > 0) {
       setFoundWords(prev => {
         const updated = new Set(prev);
-        validWords.forEach(word => updated.add(word));
+        validWords.forEach(word => {
+          if (!prev.has(word)) {
+            updated.add(word);
+            addFoundWord(word, true); // Save to database
+          }
+        });
         return updated;
       });
     }
@@ -124,10 +181,15 @@ const WordTracker = () => {
       });
     }
 
-    if (invalidWords.length > 0) {
+    if (invalidWordsData.length > 0) {
       setInvalidWords(prev => {
         const updated = new Set(prev);
-        invalidWords.forEach(word => updated.add(word));
+        invalidWordsData.forEach(word => {
+          if (!prev.has(word)) {
+            updated.add(word);
+            addFoundWord(word, false); // Save to database as invalid
+          }
+        });
         return updated;
       });
     }
@@ -146,7 +208,7 @@ const WordTracker = () => {
     }
   };
 
-  const resetProgress = () => {
+  const resetProgress = async () => {
     setFoundWords(new Set());
     setInvalidWords(new Set());
     setFoundPangrams(new Set());
@@ -155,9 +217,12 @@ const WordTracker = () => {
     setTwoLetterList([]);
     setPangrams(0);
     setHasLoadedHints(false);
+    
+    // Clear database
+    await deleteSession();
   };
 
-  const removeWord = (wordToRemove: string) => {
+  const removeWord = async (wordToRemove: string) => {
     setFoundWords(prev => {
       const updated = new Set(prev);
       updated.delete(wordToRemove);
@@ -168,23 +233,41 @@ const WordTracker = () => {
       updated.delete(wordToRemove);
       return updated;
     });
+    
+    // Remove from database
+    await removeFoundWord(wordToRemove);
   };
 
-  const removeInvalidWord = (wordToRemove: string) => {
+  const removeInvalidWord = async (wordToRemove: string) => {
     setInvalidWords(prev => {
       const updated = new Set(prev);
       updated.delete(wordToRemove);
       return updated;
     });
+    
+    // Remove from database
+    await removeFoundWord(wordToRemove);
   };
 
-  const removeAllValidWords = () => {
+  const removeAllValidWords = async () => {
+    const wordsToRemove = Array.from(foundWords);
     setFoundWords(new Set());
     setFoundPangrams(new Set());
+    
+    // Remove from database
+    for (const word of wordsToRemove) {
+      await removeFoundWord(word);
+    }
   };
 
-  const removeAllInvalidWords = () => {
+  const removeAllInvalidWords = async () => {
+    const wordsToRemove = Array.from(invalidWords);
     setInvalidWords(new Set());
+    
+    // Remove from database
+    for (const word of wordsToRemove) {
+      await removeFoundWord(word);
+    }
   };
 
   const progressPercentage = totalPossibleWords > 0 
