@@ -38,14 +38,33 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `You are a parser for NYT Spelling Bee hints. Extract and return ONLY a valid JSON object with this structure:
+            content: `You are a parser for NYT Spelling Bee hints. The hints are formatted as a TABLE:
+
+STRUCTURE:
+- First row: column headers are WORD LENGTHS (e.g., 4, 5, 6, 7, 8...)
+- Each subsequent row: starts with a LETTER, followed by COUNTS for each word length
+- The letter is the starting letter of words
+- Each number in the row shows how many words start with that letter and have that length
+
+EXAMPLE TABLE:
+    4  5  6  7  8
+A   2  4  1  1  -
+B   5  3  1  4  3
+
+This means:
+- 2 words start with A and are 4 letters long
+- 4 words start with A and are 5 letters long
+- 5 words start with B and are 4 letters long
+- etc.
+
+Return ONLY a valid JSON object:
 {
   "allowedLetters": ["A", "B", "C"],
   "pangrams": 2,
   "totalWords": 50,
   "hintsGrid": {
-    "A": { "4": 2, "5": 3 },
-    "B": { "4": 5, "5": 3 }
+    "A": { "4": 2, "5": 4, "6": 1, "7": 1 },
+    "B": { "4": 5, "5": 3, "6": 1, "7": 4, "8": 3 }
   },
   "twoLetterList": [
     { "combo": "AB", "count": 5 },
@@ -53,18 +72,16 @@ serve(async (req) => {
   ]
 }
 
-Rules:
-- allowedLetters: array of uppercase single letters used in the puzzle
-- pangrams: number of pangrams
-- totalWords: total word count
-- hintsGrid: object where keys are letters (uppercase), values are objects mapping word length (number) to count (number)
-- twoLetterList: array of objects with "combo" (2 uppercase letters) and "count" (number)
-- Only include data that is clearly present in the text
+IMPORTANT:
+- Parse the table structure: first row = lengths, subsequent rows = letter + counts
+- Map each count to its corresponding length from the header row
+- Skip any dashes or zeros (no words at that length)
+- Calculate totalWords by summing all counts
 - Return ONLY valid JSON, no markdown, no explanation`
           },
           {
             role: "user",
-            content: `Parse this Spelling Bee hints text and extract the data:\n\n${text}`
+            content: `Parse this Spelling Bee hints table and extract the data:\n\n${text}`
           }
         ],
         temperature: 0.1,
