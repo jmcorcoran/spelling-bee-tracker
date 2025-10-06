@@ -101,21 +101,36 @@ const ImageUpload = ({ onHintsLoaded, onWordsExtracted }: ImageUploadProps) => {
           
           console.log(`Processing letter ${letter} with raw values:`, values);
           
-          // Handle OCR errors where digits are concatenated (e.g., "231" should be "2 3 1")
-          // If we have very few values but some are multi-digit, try to split them
-          if (values.length <= 2 && values.some(v => v.length > 2 && /^\d+$/.test(v))) {
-            const expandedValues: string[] = [];
-            values.forEach(val => {
-              if (/^\d+$/.test(val) && val.length > 2) {
-                // Split multi-digit strings into individual digits
-                expandedValues.push(...val.split(''));
+          // Handle OCR errors where numbers are concatenated (e.g., "1110" should be "11 10")
+          // Spelling bee hints rarely exceed 30 for any cell, so values > 50 are likely concatenated
+          const expandedValues: string[] = [];
+          values.forEach(val => {
+            if (/^\d+$/.test(val)) {
+              const num = parseInt(val, 10);
+              // If number is suspiciously large (> 50), try to split it intelligently
+              if (num > 50) {
+                // Try to split into 2-digit chunks: "1110" -> ["11", "10"]
+                const str = val;
+                if (str.length === 4) {
+                  // Split 4-digit into two 2-digit numbers
+                  expandedValues.push(str.substring(0, 2), str.substring(2, 4));
+                } else if (str.length === 3) {
+                  // Split 3-digit: could be 2+1 or 1+2, prefer 2+1
+                  expandedValues.push(str.substring(0, 2), str.substring(2, 3));
+                } else {
+                  // For other lengths, split into individual digits as fallback
+                  expandedValues.push(...str.split(''));
+                }
+                console.log(`Split large value ${val} into:`, expandedValues.slice(-2));
               } else {
                 expandedValues.push(val);
               }
-            });
-            values = expandedValues;
-            console.log(`Expanded concatenated values to:`, values);
-          }
+            } else {
+              expandedValues.push(val);
+            }
+          });
+          values = expandedValues;
+          console.log(`Final processed values:`, values);
           
           // Remove last element if it looks like a row total (number > 15 usually)
           const cleanValues = values.slice();
