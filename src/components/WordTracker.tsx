@@ -6,7 +6,6 @@ import { Input } from '@/components/ui/input';
 import { Target, Plus, X, RotateCcw, RefreshCw } from 'lucide-react';
 import HintsGrid from './HintsGrid';
 import ImageUpload from './ImageUpload';
-import HintsFetcher from './HintsFetcher';
 import { useGameSession } from '@/hooks/useGameSession';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -387,10 +386,10 @@ const WordTracker = () => {
           )}
         </div>
 
-        {/* Hints Fetcher - Show this first if no hints loaded */}
+        {/* Image Upload for Hints - Show this first if no hints loaded */}
         {!hasLoadedHints && (
           <div className="mb-6 sm:mb-8">
-            <HintsFetcher onHintsLoaded={handleHintsLoaded} />
+            <ImageUpload onHintsLoaded={handleHintsLoaded} />
           </div>
         )}
 
