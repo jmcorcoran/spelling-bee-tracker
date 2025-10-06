@@ -21,6 +21,8 @@ const ImageUpload = ({ onHintsLoaded, onWordsExtracted }: ImageUploadProps) => {
   const [hintsFile, setHintsFile] = useState<File | null>(null);
   const [progressFile, setProgressFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [extractedText, setExtractedText] = useState<string>('');
+  const [showDebug, setShowDebug] = useState(false);
   const { toast } = useToast();
 
   const parseTwoLetterList = (text: string): { combo: string; count: number }[] => {
@@ -62,37 +64,58 @@ const ImageUpload = ({ onHintsLoaded, onWordsExtracted }: ImageUploadProps) => {
 
       const lines = content.split("\n").map((l) => l.trim()).filter(l => l.length > 0);
 
-      // First line should contain the allowed letters
+      console.log("Parsing hints from lines:", lines);
+
+      // First line should contain the allowed letters - be more flexible
       if (lines.length > 0) {
         const firstLine = lines[0];
-        if (/^[a-z]\s+[a-z]/.test(firstLine)) {
-          allowedLetters = firstLine.split(/\s+/).map(letter => letter.toUpperCase()).filter(l => /^[A-Z]$/.test(l));
+        // Try multiple patterns for allowed letters
+        if (/^[a-z]\s+[a-z]/i.test(firstLine) || /^[a-z][,\s]+[a-z]/i.test(firstLine)) {
+          allowedLetters = firstLine.split(/[,\s]+/).map(letter => letter.toUpperCase()).filter(l => /^[A-Z]$/.test(l));
+          console.log("Found allowed letters:", allowedLetters);
         }
       }
 
       for (const raw of lines) {
-        const line = raw.replace(/\u00A0/g, " ");
+        const line = raw.replace(/\u00A0/g, " ").trim();
         
-        const pangramMatch = line.match(/PANGRAMS?:\s*(\d+)/i);
+        // Parse pangram count - more flexible pattern
+        const pangramMatch = line.match(/PANGRAMS?[:\s]+(\d+)/i);
         if (pangramMatch) {
           pangrams = parseInt(pangramMatch[1], 10);
+          console.log("Found pangrams:", pangrams);
           continue;
         }
         
-        const letterMatch = line.match(/^([a-z]):\s*(.+)$/i);
+        // Match letter rows - be more flexible with separators
+        // Allow: "a: 2 4 2 - - - - 8" or "a 2 4 2 - - - - 8" or "a:2 4 2"
+        const letterMatch = line.match(/^([a-z])[:\s]+(.+)$/i);
         if (letterMatch) {
           const letter = letterMatch[1].toUpperCase();
           
-          if (letter === 'Σ') continue;
+          // Skip the totals row (Σ or sum)
+          if (letter === 'Σ' || line.toLowerCase().includes('sum')) continue;
           
-          const values = letterMatch[2].split(/\s+/).slice(0, -1);
+          // Split by any whitespace, remove the final total if present
+          const values = letterMatch[2].split(/\s+/).filter(v => v && v !== '|');
           
-          if (values.length > 0) {
+          console.log(`Processing letter ${letter} with values:`, values);
+          
+          // Remove last element if it looks like a row total (number > 20 usually)
+          const cleanValues = values.slice();
+          if (cleanValues.length > 1) {
+            const lastVal = cleanValues[cleanValues.length - 1];
+            if (lastVal !== '-' && !isNaN(parseInt(lastVal)) && parseInt(lastVal) > 15) {
+              cleanValues.pop(); // Remove row total
+            }
+          }
+          
+          if (cleanValues.length > 0) {
             hintsData[letter] = {};
-            values.forEach((value, idx) => {
-              const count = value === '-' ? 0 : parseInt(value, 10);
+            cleanValues.forEach((value, idx) => {
+              const count = value === '-' || value === '—' ? 0 : parseInt(value, 10);
               if (!isNaN(count) && count > 0) {
-                const length = 4 + idx;
+                const length = 4 + idx; // columns start at 4 letters
                 hintsData[letter][length] = count;
                 totalWords += count;
               }
@@ -101,7 +124,11 @@ const ImageUpload = ({ onHintsLoaded, onWordsExtracted }: ImageUploadProps) => {
         }
       }
 
+      console.log("Final parsed hintsData:", hintsData);
+      console.log("Total words:", totalWords);
+
       if (Object.keys(hintsData).length === 0) {
+        console.error("No hints data found in content");
         return null;
       }
 
@@ -193,6 +220,7 @@ const ImageUpload = ({ onHintsLoaded, onWordsExtracted }: ImageUploadProps) => {
     }
 
     setIsProcessing(true);
+    setExtractedText('');
 
     try {
       const worker = await createWorker('eng');
@@ -200,14 +228,20 @@ const ImageUpload = ({ onHintsLoaded, onWordsExtracted }: ImageUploadProps) => {
       // Process hints image
       toast({
         title: "Processing hints...",
-        description: "Extracting hints data from the image.",
+        description: "Extracting hints data from the image. This may take 30-60 seconds.",
       });
 
       const { data: { text: hintsText } } = await worker.recognize(hintsFile);
-      console.log('Hints text:', hintsText);
+      setExtractedText(hintsText);
+      console.log('=== EXTRACTED HINTS TEXT ===');
+      console.log(hintsText);
+      console.log('=== END EXTRACTED TEXT ===');
 
       // Separate content into hints and two-letter sections
       const { hintsText: parsedHintsText, twoLetterText } = separateContent(hintsText);
+      
+      console.log('Separated hints text:', parsedHintsText);
+      console.log('Separated two-letter text:', twoLetterText);
       
       // Parse hints data
       const parsed = parseHintsFromContent(parsedHintsText);
@@ -215,9 +249,10 @@ const ImageUpload = ({ onHintsLoaded, onWordsExtracted }: ImageUploadProps) => {
 
       if (!parsed) {
         await worker.terminate();
+        setShowDebug(true);
         toast({
           title: "Could not parse hints",
-          description: "We couldn't find a recognizable hints grid in the image. Make sure the image shows the full hints table.",
+          description: "Check the debug info below to see what text was extracted. The image quality or format might be the issue.",
           variant: "destructive"
         });
         setIsProcessing(false);
@@ -247,15 +282,17 @@ const ImageUpload = ({ onHintsLoaded, onWordsExtracted }: ImageUploadProps) => {
         onWordsExtracted(extractedWords);
       }
       
+      setShowDebug(false);
       toast({
         title: "Images processed!",
         description: `Loaded ${parsed.totalWords} total words${twoLetterList.length > 0 ? `, ${twoLetterList.length} two-letter combos` : ''}${extractedWords.length > 0 ? `, and ${extractedWords.length} found words` : ''}.`,
       });
     } catch (error) {
       console.error('OCR processing error:', error);
+      setShowDebug(true);
       toast({
         title: "Processing failed",
-        description: "Error extracting text from images. Please try again.",
+        description: "Error extracting text from images. Check console for details.",
         variant: "destructive"
       });
     } finally {
@@ -408,6 +445,24 @@ const ImageUpload = ({ onHintsLoaded, onWordsExtracted }: ImageUploadProps) => {
             <div className="animate-spin rounded-full h-4 w-4 border-2 border-slate-400 border-t-transparent"></div>
             <span className="text-slate-200 text-sm font-medium">Extracting text from images...</span>
           </div>
+        </div>
+      )}
+
+      {/* Debug Output */}
+      {showDebug && extractedText && (
+        <div className="mt-4 p-3 bg-red-900/20 rounded-lg border border-red-700/50">
+          <div className="mb-2">
+            <span className="text-sm font-semibold text-red-300">Debug: Extracted Text</span>
+            <p className="text-xs text-slate-400 mt-1">
+              This is what OCR extracted from your image. Check if the grid structure is visible.
+            </p>
+          </div>
+          <pre className="text-xs text-slate-300 whitespace-pre-wrap max-h-60 overflow-y-auto bg-slate-900/50 p-2 rounded">
+            {extractedText}
+          </pre>
+          <p className="text-xs text-slate-400 mt-2">
+            Tip: For best results, use a clear screenshot showing the full hints grid with good contrast.
+          </p>
         </div>
       )}
     </Card>
