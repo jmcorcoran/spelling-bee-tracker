@@ -1,1 +1,4 @@
 project_id = "zfpyradjamxhyswbmfkj"
+
+[functions.parse-hints]
+verify_jwt = false

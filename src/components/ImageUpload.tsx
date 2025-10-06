@@ -2,9 +2,12 @@ import { useState, useCallback } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Upload, X, Image as ImageIcon, ArrowRight } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Upload, X, Image as ImageIcon, ArrowRight, FileText } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { createWorker } from 'tesseract.js';
+import { supabase } from '@/integrations/supabase/client';
 
 interface HintsData {
   [letter: string]: {
@@ -20,9 +23,9 @@ interface ImageUploadProps {
 const ImageUpload = ({ onHintsLoaded, onWordsExtracted }: ImageUploadProps) => {
   const [hintsFile, setHintsFile] = useState<File | null>(null);
   const [progressFile, setProgressFile] = useState<File | null>(null);
+  const [pastedText, setPastedText] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [extractedText, setExtractedText] = useState<string>('');
-  const [showDebug, setShowDebug] = useState(false);
   const { toast } = useToast();
 
   const parseTwoLetterList = (text: string): { combo: string; count: number }[] => {
@@ -280,7 +283,6 @@ const ImageUpload = ({ onHintsLoaded, onWordsExtracted }: ImageUploadProps) => {
 
       if (!parsed) {
         await worker.terminate();
-        setShowDebug(true);
         toast({
           title: "Could not parse hints",
           description: "Check the debug info below to see what text was extracted. The image quality or format might be the issue.",
@@ -313,14 +315,12 @@ const ImageUpload = ({ onHintsLoaded, onWordsExtracted }: ImageUploadProps) => {
         onWordsExtracted(extractedWords);
       }
       
-      setShowDebug(false);
       toast({
         title: "Images processed!",
         description: `Loaded ${parsed.totalWords} total words${twoLetterList.length > 0 ? `, ${twoLetterList.length} two-letter combos` : ''}${extractedWords.length > 0 ? `, and ${extractedWords.length} found words` : ''}.`,
       });
     } catch (error) {
       console.error('OCR processing error:', error);
-      setShowDebug(true);
       toast({
         title: "Processing failed",
         description: "Error extracting text from images. Check console for details.",
@@ -339,17 +339,131 @@ const ImageUpload = ({ onHintsLoaded, onWordsExtracted }: ImageUploadProps) => {
     setProgressFile(null);
   };
 
+  const processTextWithAI = async () => {
+    if (!pastedText.trim()) {
+      toast({
+        title: "Text required",
+        description: "Please paste the hints text to continue.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsProcessing(true);
+    setExtractedText('');
+
+    try {
+      toast({
+        title: "Processing with AI...",
+        description: "Claude is analyzing your hints text.",
+      });
+
+      const { data, error } = await supabase.functions.invoke('parse-hints', {
+        body: { text: pastedText }
+      });
+
+      if (error) throw error;
+
+      if (!data.success) {
+        throw new Error(data.error || "Failed to parse hints");
+      }
+
+      const parsed = data.data;
+      setExtractedText(JSON.stringify(parsed, null, 2));
+
+      // Convert the parsed data to our format
+      const hintsData: HintsData = parsed.hintsGrid || {};
+      const totalWords = parsed.totalWords || 0;
+      const twoLetterList = parsed.twoLetterList || [];
+      const pangrams = parsed.pangrams || 0;
+      const allowedLetters = parsed.allowedLetters || [];
+
+      if (Object.keys(hintsData).length === 0) {
+        throw new Error("No hints grid found in the text");
+      }
+
+      // Load hints data
+      onHintsLoaded(hintsData, totalWords, twoLetterList, pangrams, allowedLetters);
+
+      toast({
+        title: "Text parsed successfully!",
+        description: `Loaded ${totalWords} total words${twoLetterList.length > 0 ? `, ${twoLetterList.length} two-letter combos` : ''}.`,
+      });
+    } catch (error) {
+      console.error('AI parsing error:', error);
+      toast({
+        title: "Processing failed",
+        description: error instanceof Error ? error.message : "Failed to parse hints text",
+        variant: "destructive"
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   return (
     <Card className="p-4 bg-slate-900/90 border-slate-700/50 backdrop-blur-sm">
       <div className="flex items-center justify-between mb-3">
         <div>
-          <h3 className="text-lg font-semibold text-slate-100">Upload Images</h3>
-          <p className="text-sm text-slate-400">Upload hints and progress screenshots</p>
+          <h3 className="text-lg font-semibold text-slate-100">Load Hints</h3>
+          <p className="text-sm text-slate-400">Paste text or upload images</p>
         </div>
-        <Badge variant="secondary" className="bg-slate-800 text-slate-300">
-          {[hintsFile, progressFile].filter(Boolean).length} / 2 files
-        </Badge>
       </div>
+
+      <Tabs defaultValue="text" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 bg-slate-800/60">
+          <TabsTrigger value="text" className="data-[state=active]:bg-slate-700">
+            <FileText className="h-4 w-4 mr-2" />
+            Paste Text (AI)
+          </TabsTrigger>
+          <TabsTrigger value="image" className="data-[state=active]:bg-slate-700">
+            <Upload className="h-4 w-4 mr-2" />
+            Upload Images (OCR)
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Text Input Tab */}
+        <TabsContent value="text" className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-200 mb-2">
+              Paste Hints Text
+            </label>
+            <Textarea
+              value={pastedText}
+              onChange={(e) => setPastedText(e.target.value)}
+              placeholder="Paste the hints text from the NYT forum or any source here..."
+              className="min-h-[200px] bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-400 focus:border-blue-500"
+              maxLength={10000}
+            />
+            <p className="text-xs text-slate-400 mt-1">
+              Copy and paste the full hints text - AI will intelligently extract the data
+            </p>
+          </div>
+
+          <Button
+            onClick={processTextWithAI}
+            disabled={isProcessing || !pastedText.trim()}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            {isProcessing ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                Processing with AI...
+              </>
+            ) : (
+              <>
+                <ArrowRight className="h-4 w-4 mr-2" />
+                Process Text with AI
+              </>
+            )}
+          </Button>
+        </TabsContent>
+
+        {/* Image Upload Tab */}
+        <TabsContent value="image" className="space-y-4">
+          <Badge variant="secondary" className="bg-slate-800 text-slate-300 mb-2">
+            {[hintsFile, progressFile].filter(Boolean).length} / 2 files
+          </Badge>
 
       {/* Hints Image Upload */}
       <div className="mb-4">
@@ -401,8 +515,8 @@ const ImageUpload = ({ onHintsLoaded, onWordsExtracted }: ImageUploadProps) => {
         )}
       </div>
 
-      {/* Progress Image Upload */}
-      <div className="mb-4">
+          {/* Progress Image Upload */}
+          <div className="mb-4">
         <label className="block text-sm font-medium text-slate-200 mb-2">
           Progress Image (Optional)
         </label>
@@ -451,24 +565,26 @@ const ImageUpload = ({ onHintsLoaded, onWordsExtracted }: ImageUploadProps) => {
         )}
       </div>
 
-      {/* Process Button */}
-      <Button
-        onClick={processImages}
-        disabled={isProcessing || !hintsFile}
-        className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-      >
-        {isProcessing ? (
-          <>
-            <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
-            Processing Images...
-          </>
-        ) : (
-          <>
-            <ArrowRight className="h-4 w-4 mr-2" />
-            Process Images
-          </>
-        )}
-      </Button>
+          {/* Process Button */}
+          <Button
+            onClick={processImages}
+            disabled={isProcessing || !hintsFile}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            {isProcessing ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                Processing Images...
+              </>
+            ) : (
+              <>
+                <ArrowRight className="h-4 w-4 mr-2" />
+                Process Images with OCR
+              </>
+            )}
+          </Button>
+        </TabsContent>
+      </Tabs>
 
       {isProcessing && (
         <div className="mt-4 p-3 bg-slate-800/60 rounded-lg border border-slate-700/50">
