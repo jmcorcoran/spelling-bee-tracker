@@ -97,11 +97,27 @@ const ImageUpload = ({ onHintsLoaded, onWordsExtracted }: ImageUploadProps) => {
           if (letter === 'Σ' || line.toLowerCase().includes('sum')) continue;
           
           // Split by any whitespace, remove the final total if present
-          const values = letterMatch[2].split(/\s+/).filter(v => v && v !== '|');
+          let values = letterMatch[2].split(/\s+/).filter(v => v && v !== '|');
           
-          console.log(`Processing letter ${letter} with values:`, values);
+          console.log(`Processing letter ${letter} with raw values:`, values);
           
-          // Remove last element if it looks like a row total (number > 20 usually)
+          // Handle OCR errors where digits are concatenated (e.g., "231" should be "2 3 1")
+          // If we have very few values but some are multi-digit, try to split them
+          if (values.length <= 2 && values.some(v => v.length > 2 && /^\d+$/.test(v))) {
+            const expandedValues: string[] = [];
+            values.forEach(val => {
+              if (/^\d+$/.test(val) && val.length > 2) {
+                // Split multi-digit strings into individual digits
+                expandedValues.push(...val.split(''));
+              } else {
+                expandedValues.push(val);
+              }
+            });
+            values = expandedValues;
+            console.log(`Expanded concatenated values to:`, values);
+          }
+          
+          // Remove last element if it looks like a row total (number > 15 usually)
           const cleanValues = values.slice();
           if (cleanValues.length > 1) {
             const lastVal = cleanValues[cleanValues.length - 1];
