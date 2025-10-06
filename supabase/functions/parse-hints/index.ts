@@ -38,50 +38,57 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `You are a parser for NYT Spelling Bee hints. The hints are formatted as a TABLE:
+            content: `You are a parser for NYT Spelling Bee hints. The hints are formatted as a TABLE with this EXACT structure:
 
-STRUCTURE:
-- First row: column headers are WORD LENGTHS (e.g., 4, 5, 6, 7, 8...)
-- Each subsequent row: starts with a LETTER, followed by COUNTS for each word length
-- The letter is the starting letter of words
-- Each number in the row shows how many words start with that letter and have that length
+TABLE STRUCTURE:
+Row 1 (Header): Column headers showing word lengths (e.g., 4, 5, 6, 7, 8...) and final column is Σ (sum - IGNORE THIS)
+Rows 2-N: Each starts with a LETTER (A-Z), followed by counts for each word length, final column is total (IGNORE THIS)
+Last Row: Σ (sum row - IGNORE THIS ENTIRE ROW)
 
-EXAMPLE TABLE:
-    4  5  6  7  8
-A   2  4  1  1  -
-B   5  3  1  4  3
+PARSING RULES:
+1. First row: Extract ONLY the numeric word lengths, IGNORE the final Σ column
+2. Data rows: Extract the starting LETTER and the counts for each word length
+3. SKIP the last column in each data row (it's a sum)
+4. SKIP the last row entirely (it's a sum row with Σ)
+5. Map each count to its corresponding word length from the header
 
-This means:
-- 2 words start with A and are 4 letters long
-- 4 words start with A and are 5 letters long
-- 5 words start with B and are 4 letters long
-- etc.
+EXAMPLE:
+       4   5   6   7   Σ
+   A   2   4   1   -   7
+   B   5   3   1   4   13
+   Σ   7   7   2   4   20
 
-Return ONLY a valid JSON object:
+Parse as:
+- Word lengths: [4, 5, 6, 7]
+- Letter A: 2 words of length 4, 4 words of length 5, 1 word of length 6, 0 of length 7
+- Letter B: 5 words of length 4, 3 words of length 5, 1 word of length 6, 4 of length 7
+- Skip the Σ row
+- Skip all Σ columns
+
+Return ONLY valid JSON:
 {
-  "allowedLetters": ["A", "B", "C"],
+  "allowedLetters": ["A", "B"],
   "pangrams": 2,
-  "totalWords": 50,
+  "totalWords": 20,
   "hintsGrid": {
-    "A": { "4": 2, "5": 4, "6": 1, "7": 1 },
-    "B": { "4": 5, "5": 3, "6": 1, "7": 4, "8": 3 }
+    "A": { "4": 2, "5": 4, "6": 1 },
+    "B": { "4": 5, "5": 3, "6": 1, "7": 4 }
   },
   "twoLetterList": [
-    { "combo": "AB", "count": 5 },
-    { "combo": "AC", "count": 3 }
+    { "combo": "AB", "count": 5 }
   ]
 }
 
-IMPORTANT:
-- Parse the table structure: first row = lengths, subsequent rows = letter + counts
-- Map each count to its corresponding length from the header row
-- Skip any dashes or zeros (no words at that length)
-- Calculate totalWords by summing all counts
-- Return ONLY valid JSON, no markdown, no explanation`
+CRITICAL:
+- Use ONLY letters A-Z from data rows (before the Σ row)
+- Map counts to correct word lengths from header row
+- Dashes (-) or zeros mean no words at that length (skip them)
+- Calculate totalWords by summing all non-zero counts
+- NO markdown, NO explanation, ONLY JSON`
           },
           {
             role: "user",
-            content: `Parse this Spelling Bee hints table and extract the data:\n\n${text}`
+            content: `Parse this Spelling Bee hints table. Remember to skip the sum row (Σ) and sum columns:\n\n${text}`
           }
         ],
         temperature: 0.1,
