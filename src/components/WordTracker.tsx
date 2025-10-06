@@ -342,6 +342,16 @@ const WordTracker = () => {
           
           {hasLoadedHints && (
             <>
+              <Button
+                onClick={handleRefresh}
+                variant="outline"
+                size="sm"
+                className="mb-4 border-slate-600 bg-slate-800 text-slate-200 hover:bg-slate-700 hover:border-slate-500"
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Start Fresh
+              </Button>
+              
               <Card className="inline-flex items-center gap-3 sm:gap-6 p-3 sm:p-4 bg-slate-800/80 border-slate-700/50 backdrop-blur-sm mx-4 sm:mx-0">
                 <div className="text-center">
                   <div className="text-lg sm:text-2xl font-bold text-white">{foundWords.size}</div>
@@ -363,16 +373,6 @@ const WordTracker = () => {
                   <div className="text-xs sm:text-sm text-slate-400">Complete</div>
                 </div>
               </Card>
-              
-              <Button
-                onClick={handleRefresh}
-                variant="outline"
-                size="sm"
-                className="mt-4 border-slate-600 bg-slate-800 text-slate-200 hover:bg-slate-700 hover:border-slate-500"
-              >
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Start Fresh
-              </Button>
             </>
           )}
         </div>
