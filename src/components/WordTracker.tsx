@@ -256,18 +256,26 @@ const WordTracker = () => {
   };
 
   const handleRefresh = async () => {
+    // Clear all state completely
     setFoundWords(new Set());
     setInvalidWords(new Set());
     setFoundPangrams(new Set());
+    setHintsData({});
+    setAllowedLetters(new Set());
+    setTotalPossibleWords(0);
+    setTwoLetterList([]);
+    setPangrams(0);
+    setHasLoadedHints(false);
+    setSessionDate(null);
     
-    // Clear words from database but keep the session
-    await clearAllWords();
+    // Delete the entire session from database
+    await deleteSession();
     
     setShowNewDayDialog(false);
     
     toast({
-      title: "Progress Refreshed",
-      description: "Your word list has been cleared. Ready for a new day!",
+      title: "Starting Fresh",
+      description: "All data cleared. Upload a new hints image to begin!",
     });
   };
 
