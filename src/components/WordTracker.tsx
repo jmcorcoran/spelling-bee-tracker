@@ -328,7 +328,7 @@ const WordTracker = () => {
           <>
             {/* Image Upload - Compact version above table */}
             <div className="mb-4 sm:mb-6">
-              <ImageUpload onWordsExtracted={handleWordsFound} />
+              <ImageUpload onHintsLoaded={handleHintsLoaded} />
             </div>
 
             <div className="space-y-6">
