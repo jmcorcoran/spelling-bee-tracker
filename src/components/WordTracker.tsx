@@ -389,16 +389,16 @@ const WordTracker = () => {
         {/* Image Upload for Hints - Show this first if no hints loaded */}
         {!hasLoadedHints && (
           <div className="mb-6 sm:mb-8">
-            <ImageUpload onHintsLoaded={handleHintsLoaded} />
+            <ImageUpload onHintsLoaded={handleHintsLoaded} onWordsExtracted={handleWordsFound} />
           </div>
         )}
 
         {/* Main Content */}
         {hasLoadedHints && (
           <>
-            {/* Image Upload - Compact version above table */}
+            {/* Image Upload - Additional progress tracking above table */}
             <div className="mb-4 sm:mb-6">
-              <ImageUpload onHintsLoaded={handleHintsLoaded} />
+              <ImageUpload onHintsLoaded={handleHintsLoaded} onWordsExtracted={handleWordsFound} />
             </div>
 
             <div className="space-y-6">

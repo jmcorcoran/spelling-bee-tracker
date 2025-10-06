@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Upload, X, Image as ImageIcon } from 'lucide-react';
+import { Upload, X, Image as ImageIcon, ArrowRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { createWorker } from 'tesseract.js';
 
@@ -14,10 +14,12 @@ interface HintsData {
 
 interface ImageUploadProps {
   onHintsLoaded: (hintsData: HintsData, totalWords: number, twoLetterList: { combo: string; count: number }[], pangrams: number, allowedLetters: string[]) => void;
+  onWordsExtracted?: (words: string[]) => void;
 }
 
-const ImageUpload = ({ onHintsLoaded }: ImageUploadProps) => {
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+const ImageUpload = ({ onHintsLoaded, onWordsExtracted }: ImageUploadProps) => {
+  const [hintsFile, setHintsFile] = useState<File | null>(null);
+  const [progressFile, setProgressFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
 
@@ -136,7 +138,7 @@ const ImageUpload = ({ onHintsLoaded }: ImageUploadProps) => {
     };
   };
 
-  const handleFileUpload = useCallback((files: FileList | null) => {
+  const handleHintsFileUpload = useCallback((files: FileList | null) => {
     if (!files || files.length === 0) return;
     
     const file = files[0];
@@ -150,55 +152,110 @@ const ImageUpload = ({ onHintsLoaded }: ImageUploadProps) => {
       return;
     }
 
-    setUploadedFile(file);
-    processImageWithOCR(file);
+    setHintsFile(file);
   }, [toast]);
 
-  const processImageWithOCR = async (file: File) => {
+  const handleProgressFileUpload = useCallback((files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    
+    const file = files[0];
+    
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Invalid file type",
+        description: "Please upload an image file only.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setProgressFile(file);
+  }, [toast]);
+
+  const extractWordsFromProgress = (text: string): string[] => {
+    // Extract words that are likely spelling bee words (4+ letters, all caps or mixed case)
+    const words = text
+      .split(/\s+/)
+      .map(word => word.replace(/[^A-Za-z]/g, '').toUpperCase())
+      .filter(word => word.length >= 4 && /^[A-Z]+$/.test(word));
+    
+    return Array.from(new Set(words));
+  };
+
+  const processImages = async () => {
+    if (!hintsFile) {
+      toast({
+        title: "Hints image required",
+        description: "Please upload the hints image to continue.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsProcessing(true);
 
     try {
+      const worker = await createWorker('eng');
+      
+      // Process hints image
       toast({
-        title: "Processing image...",
-        description: "Extracting text from the image. This may take a moment.",
+        title: "Processing hints...",
+        description: "Extracting hints data from the image.",
       });
 
-      const worker = await createWorker('eng');
-      const { data: { text } } = await worker.recognize(file);
-      await worker.terminate();
-
-      console.log('Extracted text:', text);
+      const { data: { text: hintsText } } = await worker.recognize(hintsFile);
+      console.log('Hints text:', hintsText);
 
       // Separate content into hints and two-letter sections
-      const { hintsText, twoLetterText } = separateContent(text);
+      const { hintsText: parsedHintsText, twoLetterText } = separateContent(hintsText);
       
-      console.log('Hints text:', hintsText);
-      console.log('Two-letter text:', twoLetterText);
-
       // Parse hints data
-      const parsed = parseHintsFromContent(hintsText);
+      const parsed = parseHintsFromContent(parsedHintsText);
       const twoLetterList = parseTwoLetterList(twoLetterText);
 
       if (!parsed) {
+        await worker.terminate();
         toast({
           title: "Could not parse hints",
           description: "We couldn't find a recognizable hints grid in the image. Make sure the image shows the full hints table.",
           variant: "destructive"
         });
+        setIsProcessing(false);
         return;
       }
 
+      // Process progress image if provided
+      let extractedWords: string[] = [];
+      if (progressFile) {
+        toast({
+          title: "Processing progress...",
+          description: "Extracting your found words from the progress image.",
+        });
+
+        const { data: { text: progressText } } = await worker.recognize(progressFile);
+        console.log('Progress text:', progressText);
+        extractedWords = extractWordsFromProgress(progressText);
+      }
+
+      await worker.terminate();
+
+      // Load hints data
       onHintsLoaded(parsed.hintsData, parsed.totalWords, twoLetterList, parsed.pangrams, parsed.allowedLetters);
       
+      // Load found words if any
+      if (extractedWords.length > 0 && onWordsExtracted) {
+        onWordsExtracted(extractedWords);
+      }
+      
       toast({
-        title: "Hints loaded!",
-        description: `Loaded ${parsed.totalWords} total words${twoLetterList.length > 0 ? ` and ${twoLetterList.length} two-letter combos` : ''} from the image.`,
+        title: "Images processed!",
+        description: `Loaded ${parsed.totalWords} total words${twoLetterList.length > 0 ? `, ${twoLetterList.length} two-letter combos` : ''}${extractedWords.length > 0 ? `, and ${extractedWords.length} found words` : ''}.`,
       });
     } catch (error) {
       console.error('OCR processing error:', error);
       toast({
         title: "Processing failed",
-        description: "Error extracting text from image. Please try again.",
+        description: "Error extracting text from images. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -206,82 +263,150 @@ const ImageUpload = ({ onHintsLoaded }: ImageUploadProps) => {
     }
   };
 
-  const removeFile = () => {
-    setUploadedFile(null);
+  const removeHintsFile = () => {
+    setHintsFile(null);
   };
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    handleFileUpload(e.dataTransfer.files);
-  }, [handleFileUpload]);
-
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-  }, []);
+  const removeProgressFile = () => {
+    setProgressFile(null);
+  };
 
   return (
     <Card className="p-4 bg-slate-900/90 border-slate-700/50 backdrop-blur-sm">
       <div className="flex items-center justify-between mb-3">
         <div>
-          <h3 className="text-lg font-semibold text-slate-100">Upload Hints Image</h3>
-          <p className="text-sm text-slate-400">Extract hints from a screenshot</p>
+          <h3 className="text-lg font-semibold text-slate-100">Upload Images</h3>
+          <p className="text-sm text-slate-400">Upload hints and progress screenshots</p>
         </div>
         <Badge variant="secondary" className="bg-slate-800 text-slate-300">
-          {uploadedFile ? '1 file' : 'No file'}
+          {[hintsFile, progressFile].filter(Boolean).length} / 2 files
         </Badge>
       </div>
 
-      <div
-        className="border-2 border-dashed border-slate-600/60 rounded-lg p-4 text-center hover:border-slate-500/80 transition-colors duration-300 bg-slate-800/50"
-        onDrop={handleDrop}
-        onDragOver={handleDragOver}
-      >
-        <div className="flex items-center justify-center gap-3">
-          <div className="p-2 rounded-full bg-slate-700/50">
-            <Upload className="h-5 w-5 text-slate-300" />
+      {/* Hints Image Upload */}
+      <div className="mb-4">
+        <label className="block text-sm font-medium text-slate-200 mb-2">
+          Hints Image (Required)
+        </label>
+        <div
+          className="border-2 border-dashed border-slate-600/60 rounded-lg p-3 text-center hover:border-slate-500/80 transition-colors duration-300 bg-slate-800/50"
+          onDrop={(e) => { e.preventDefault(); handleHintsFileUpload(e.dataTransfer.files); }}
+          onDragOver={(e) => e.preventDefault()}
+        >
+          <div className="flex items-center justify-center gap-2">
+            <div className="p-2 rounded-full bg-slate-700/50">
+              <Upload className="h-4 w-4 text-slate-300" />
+            </div>
+            <div className="text-left">
+              <p className="text-sm font-medium text-slate-200">Drop hints image or click</p>
+              <p className="text-xs text-slate-400">PNG, JPG, GIF</p>
+            </div>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => handleHintsFileUpload(e.target.files)}
+              className="hidden"
+              id="hints-upload"
+            />
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => document.getElementById('hints-upload')?.click()}
+              className="border-slate-600 bg-slate-800 text-slate-200 hover:bg-slate-700 hover:border-slate-500"
+            >
+              Browse
+            </Button>
           </div>
-          <div className="text-left">
-            <p className="text-sm font-medium text-slate-200">Drop images or click to browse</p>
-            <p className="text-xs text-slate-400">PNG, JPG, GIF up to 10MB</p>
-          </div>
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(e) => handleFileUpload(e.target.files)}
-            className="hidden"
-            id="file-upload"
-          />
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => document.getElementById('file-upload')?.click()}
-            className="border-slate-600 bg-slate-800 text-slate-200 hover:bg-slate-700 hover:border-slate-500"
-          >
-            Browse
-          </Button>
         </div>
-      </div>
-
-      {uploadedFile && (
-        <div className="mt-4">
-          <div className="relative group flex items-center gap-2 bg-slate-800/60 rounded-lg p-2 border border-slate-700/50">
+        
+        {hintsFile && (
+          <div className="mt-2 relative group flex items-center gap-2 bg-slate-800/60 rounded-lg p-2 border border-slate-700/50">
             <ImageIcon className="h-4 w-4 text-slate-400" />
-            <span className="text-xs text-slate-300 max-w-48 truncate">{uploadedFile.name}</span>
+            <span className="text-xs text-slate-300 max-w-48 truncate">{hintsFile.name}</span>
             <button
-              onClick={removeFile}
+              onClick={removeHintsFile}
               className="p-1 bg-red-900/50 text-red-300 rounded-full hover:bg-red-800/60 transition-colors"
             >
               <X className="h-3 w-3" />
             </button>
           </div>
+        )}
+      </div>
+
+      {/* Progress Image Upload */}
+      <div className="mb-4">
+        <label className="block text-sm font-medium text-slate-200 mb-2">
+          Progress Image (Optional)
+        </label>
+        <div
+          className="border-2 border-dashed border-slate-600/60 rounded-lg p-3 text-center hover:border-slate-500/80 transition-colors duration-300 bg-slate-800/50"
+          onDrop={(e) => { e.preventDefault(); handleProgressFileUpload(e.dataTransfer.files); }}
+          onDragOver={(e) => e.preventDefault()}
+        >
+          <div className="flex items-center justify-center gap-2">
+            <div className="p-2 rounded-full bg-slate-700/50">
+              <Upload className="h-4 w-4 text-slate-300" />
+            </div>
+            <div className="text-left">
+              <p className="text-sm font-medium text-slate-200">Drop progress image or click</p>
+              <p className="text-xs text-slate-400">PNG, JPG, GIF</p>
+            </div>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => handleProgressFileUpload(e.target.files)}
+              className="hidden"
+              id="progress-upload"
+            />
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => document.getElementById('progress-upload')?.click()}
+              className="border-slate-600 bg-slate-800 text-slate-200 hover:bg-slate-700 hover:border-slate-500"
+            >
+              Browse
+            </Button>
+          </div>
         </div>
-      )}
+        
+        {progressFile && (
+          <div className="mt-2 relative group flex items-center gap-2 bg-slate-800/60 rounded-lg p-2 border border-slate-700/50">
+            <ImageIcon className="h-4 w-4 text-slate-400" />
+            <span className="text-xs text-slate-300 max-w-48 truncate">{progressFile.name}</span>
+            <button
+              onClick={removeProgressFile}
+              className="p-1 bg-red-900/50 text-red-300 rounded-full hover:bg-red-800/60 transition-colors"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Process Button */}
+      <Button
+        onClick={processImages}
+        disabled={isProcessing || !hintsFile}
+        className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+      >
+        {isProcessing ? (
+          <>
+            <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+            Processing Images...
+          </>
+        ) : (
+          <>
+            <ArrowRight className="h-4 w-4 mr-2" />
+            Process Images
+          </>
+        )}
+      </Button>
 
       {isProcessing && (
         <div className="mt-4 p-3 bg-slate-800/60 rounded-lg border border-slate-700/50">
           <div className="flex items-center gap-3">
             <div className="animate-spin rounded-full h-4 w-4 border-2 border-slate-400 border-t-transparent"></div>
-            <span className="text-slate-200 text-sm font-medium">Processing images...</span>
+            <span className="text-slate-200 text-sm font-medium">Extracting text from images...</span>
           </div>
         </div>
       )}
