@@ -449,20 +449,17 @@ const ImageUpload = ({ onHintsLoaded, onWordsExtracted }: ImageUploadProps) => {
       )}
 
       {/* Debug Output */}
-      {showDebug && extractedText && (
-        <div className="mt-4 p-3 bg-red-900/20 rounded-lg border border-red-700/50">
+      {extractedText && (
+        <div className="mt-4 p-3 bg-slate-800/60 rounded-lg border border-slate-700/50">
           <div className="mb-2">
-            <span className="text-sm font-semibold text-red-300">Debug: Extracted Text</span>
+            <span className="text-sm font-semibold text-slate-200">Extracted Text from OCR</span>
             <p className="text-xs text-slate-400 mt-1">
-              This is what OCR extracted from your image. Check if the grid structure is visible.
+              This is what was extracted from your image. Check if the grid structure is visible.
             </p>
           </div>
           <pre className="text-xs text-slate-300 whitespace-pre-wrap max-h-60 overflow-y-auto bg-slate-900/50 p-2 rounded">
             {extractedText}
           </pre>
-          <p className="text-xs text-slate-400 mt-2">
-            Tip: For best results, use a clear screenshot showing the full hints grid with good contrast.
-          </p>
         </div>
       )}
     </Card>
