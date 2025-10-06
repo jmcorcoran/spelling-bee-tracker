@@ -14,7 +14,74 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      found_words: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_valid: boolean
+          session_id: string
+          word: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_valid?: boolean
+          session_id: string
+          word: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_valid?: boolean
+          session_id?: string
+          word?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "found_words_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "game_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      game_sessions: {
+        Row: {
+          allowed_letters: string
+          created_at: string | null
+          id: string
+          target_pangrams: number
+          target_points: number
+          target_words: number
+          two_letter_list: Json | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          allowed_letters: string
+          created_at?: string | null
+          id?: string
+          target_pangrams?: number
+          target_points?: number
+          target_words?: number
+          two_letter_list?: Json | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          allowed_letters?: string
+          created_at?: string | null
+          id?: string
+          target_pangrams?: number
+          target_points?: number
+          target_words?: number
+          two_letter_list?: Json | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
