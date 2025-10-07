@@ -3,21 +3,12 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Target, Plus, X, RotateCcw, RefreshCw } from 'lucide-react';
+import { Target, Plus, X, RotateCcw } from 'lucide-react';
 import HintsGrid from './HintsGrid';
 import ImageUpload from './ImageUpload';
+import HintsFetcher from './HintsFetcher';
 import { useGameSession } from '@/hooks/useGameSession';
 import { useToast } from '@/hooks/use-toast';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 
 interface HintsData {
   [letter: string]: {
@@ -36,8 +27,6 @@ const WordTracker = () => {
   const [manualWord, setManualWord] = useState('');
   const [twoLetterList, setTwoLetterList] = useState<{ combo: string; count: number }[]>([]);
   const [pangrams, setPangrams] = useState(0);
-  const [showNewDayDialog, setShowNewDayDialog] = useState(false);
-  const [sessionDate, setSessionDate] = useState<string | null>(null);
   
   const { toast } = useToast();
   const {
@@ -74,26 +63,10 @@ const WordTracker = () => {
         
         setHasLoadedHints(sessionData.targetWords > 0);
         
-        // Check if session is from a previous day
-        if (sessionData.sessionDate) {
-          setSessionDate(sessionData.sessionDate);
-          const sessionDay = new Date(sessionData.sessionDate).toDateString();
-          const today = new Date().toDateString();
-          
-          if (sessionDay !== today && sessionData.foundWords.length > 0) {
-            setShowNewDayDialog(true);
-          } else {
-            toast({
-              title: "Session Restored",
-              description: `Loaded ${sessionData.foundWords.length} words from your previous session`,
-            });
-          }
-        } else {
-          toast({
-            title: "Session Restored",
-            description: `Loaded ${sessionData.foundWords.length} words from your previous session`,
-          });
-        }
+        toast({
+          title: "Session Restored",
+          description: `Loaded ${sessionData.foundWords.length} words from your previous session`,
+        });
       }
     };
 
@@ -247,35 +220,6 @@ const WordTracker = () => {
     
     // Clear database
     await deleteSession();
-    
-    toast({
-      title: "Progress Reset",
-      description: "All your data has been cleared. You can start fresh!",
-    });
-  };
-
-  const handleRefresh = async () => {
-    // Clear all state completely
-    setFoundWords(new Set());
-    setInvalidWords(new Set());
-    setFoundPangrams(new Set());
-    setHintsData({});
-    setAllowedLetters(new Set());
-    setTotalPossibleWords(0);
-    setTwoLetterList([]);
-    setPangrams(0);
-    setHasLoadedHints(false);
-    setSessionDate(null);
-    
-    // Delete the entire session from database
-    await deleteSession();
-    
-    setShowNewDayDialog(false);
-    
-    toast({
-      title: "Starting Fresh",
-      description: "All data cleared. Upload a new hints image to begin!",
-    });
   };
 
   const removeWord = async (wordToRemove: string) => {
@@ -348,57 +292,43 @@ const WordTracker = () => {
           </p>
           
           {hasLoadedHints && (
-            <>
-              <div className="mb-3">
-                <Button
-                  onClick={handleRefresh}
-                  variant="outline"
-                  size="sm"
-                  className="border-slate-600 bg-slate-800 text-slate-200 hover:bg-slate-700 hover:border-slate-500"
-                >
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Start Fresh
-                </Button>
+            <Card className="inline-flex items-center gap-3 sm:gap-6 p-3 sm:p-4 bg-slate-800/80 border-slate-700/50 backdrop-blur-sm mx-4 sm:mx-0">
+              <div className="text-center">
+                <div className="text-lg sm:text-2xl font-bold text-white">{foundWords.size}</div>
+                <div className="text-xs sm:text-sm text-slate-400">Words Found</div>
               </div>
-              
-              <Card className="inline-flex items-center gap-3 sm:gap-6 p-3 sm:p-4 bg-slate-800/80 border-slate-700/50 backdrop-blur-sm mx-4 sm:mx-0">
-                <div className="text-center">
-                  <div className="text-lg sm:text-2xl font-bold text-white">{foundWords.size}</div>
-                  <div className="text-xs sm:text-sm text-slate-400">Words Found</div>
-                </div>
-                <div className="h-6 sm:h-8 w-px bg-slate-600"></div>
-                <div className="text-center">
-                  <div className="text-lg sm:text-2xl font-bold text-slate-300">{totalPossibleWords - foundWords.size}</div>
-                  <div className="text-xs sm:text-sm text-slate-400">Remaining</div>
-                </div>
-                <div className="h-6 sm:h-8 w-px bg-slate-600"></div>
-                <div className="text-center">
-                  <div className="text-lg sm:text-2xl font-bold text-yellow-400">{foundPangrams.size}/{pangrams}</div>
-                  <div className="text-xs sm:text-sm text-slate-400">Pangrams</div>
-                </div>
-                <div className="h-6 sm:h-8 w-px bg-slate-600"></div>
-                <div className="text-center">
-                  <div className="text-lg sm:text-2xl font-bold text-blue-400">{progressPercentage}%</div>
-                  <div className="text-xs sm:text-sm text-slate-400">Complete</div>
-                </div>
-              </Card>
-            </>
+              <div className="h-6 sm:h-8 w-px bg-slate-600"></div>
+              <div className="text-center">
+                <div className="text-lg sm:text-2xl font-bold text-slate-300">{totalPossibleWords - foundWords.size}</div>
+                <div className="text-xs sm:text-sm text-slate-400">Remaining</div>
+              </div>
+              <div className="h-6 sm:h-8 w-px bg-slate-600"></div>
+              <div className="text-center">
+                <div className="text-lg sm:text-2xl font-bold text-yellow-400">{foundPangrams.size}/{pangrams}</div>
+                <div className="text-xs sm:text-sm text-slate-400">Pangrams</div>
+              </div>
+              <div className="h-6 sm:h-8 w-px bg-slate-600"></div>
+              <div className="text-center">
+                <div className="text-lg sm:text-2xl font-bold text-blue-400">{progressPercentage}%</div>
+                <div className="text-xs sm:text-sm text-slate-400">Complete</div>
+              </div>
+            </Card>
           )}
         </div>
 
-        {/* Image Upload for Hints - Show this first if no hints loaded */}
+        {/* Hints Fetcher - Show this first if no hints loaded */}
         {!hasLoadedHints && (
           <div className="mb-6 sm:mb-8">
-            <ImageUpload onHintsLoaded={handleHintsLoaded} onWordsExtracted={handleWordsFound} />
+            <HintsFetcher onHintsLoaded={handleHintsLoaded} />
           </div>
         )}
 
         {/* Main Content */}
         {hasLoadedHints && (
           <>
-            {/* Image Upload - Additional progress tracking above table */}
+            {/* Image Upload - Compact version above table */}
             <div className="mb-4 sm:mb-6">
-              <ImageUpload onHintsLoaded={handleHintsLoaded} onWordsExtracted={handleWordsFound} />
+              <ImageUpload onWordsExtracted={handleWordsFound} />
             </div>
 
             <div className="space-y-6">
@@ -567,29 +497,6 @@ const WordTracker = () => {
           </>
         )}
       </div>
-      
-      {/* New Day Dialog */}
-      <AlertDialog open={showNewDayDialog} onOpenChange={setShowNewDayDialog}>
-        <AlertDialogContent className="bg-slate-800 border-slate-700">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-white">New Day Detected!</AlertDialogTitle>
-            <AlertDialogDescription className="text-slate-300">
-              It looks like you have progress from a previous day. Would you like to start fresh for today's puzzle?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="border-slate-600 bg-slate-700 text-slate-200 hover:bg-slate-600">
-              Keep Progress
-            </AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleRefresh}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              Start Fresh
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 };
