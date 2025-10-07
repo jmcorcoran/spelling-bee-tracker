@@ -3,12 +3,23 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Target, Plus, X, RotateCcw } from 'lucide-react';
+import { Target, Plus, X, RotateCcw, RefreshCw } from 'lucide-react';
 import HintsGrid from './HintsGrid';
 import ImageUpload from './ImageUpload';
 import HintsFetcher from './HintsFetcher';
 import { useGameSession } from '@/hooks/useGameSession';
 import { useToast } from '@/hooks/use-toast';
+import { isToday, parseISO } from 'date-fns';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface HintsData {
   [letter: string]: {
@@ -27,6 +38,7 @@ const WordTracker = () => {
   const [manualWord, setManualWord] = useState('');
   const [twoLetterList, setTwoLetterList] = useState<{ combo: string; count: number }[]>([]);
   const [pangrams, setPangrams] = useState(0);
+  const [showNewDayDialog, setShowNewDayDialog] = useState(false);
   
   const { toast } = useToast();
   const {
@@ -62,6 +74,14 @@ const WordTracker = () => {
         setFoundPangrams(new Set(loadedPangrams));
         
         setHasLoadedHints(sessionData.targetWords > 0);
+        
+        // Check if session is from a previous day
+        if (sessionData.createdAt) {
+          const sessionDate = parseISO(sessionData.createdAt);
+          if (!isToday(sessionDate)) {
+            setShowNewDayDialog(true);
+          }
+        }
         
         toast({
           title: "Session Restored",
@@ -276,6 +296,28 @@ const WordTracker = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800">
+      <AlertDialog open={showNewDayDialog} onOpenChange={setShowNewDayDialog}>
+        <AlertDialogContent className="bg-slate-800 border-slate-700">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white">New Puzzle Available!</AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-300">
+              Your saved session is from a previous day. Would you like to clear it and start today's puzzle?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-slate-700 text-slate-300 hover:bg-slate-600 border-slate-600">
+              Keep Old Puzzle
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={resetProgress}
+              className="bg-blue-600 text-white hover:bg-blue-700"
+            >
+              Start Fresh
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      
       <div className="container max-w-4xl mx-auto p-4 sm:p-6">
         {/* Header */}
         <div className="mb-6 sm:mb-8 text-center">
@@ -292,27 +334,40 @@ const WordTracker = () => {
           </p>
           
           {hasLoadedHints && (
-            <Card className="inline-flex items-center gap-3 sm:gap-6 p-3 sm:p-4 bg-slate-800/80 border-slate-700/50 backdrop-blur-sm mx-4 sm:mx-0">
+            <div className="space-y-4">
+              <Card className="inline-flex items-center gap-3 sm:gap-6 p-3 sm:p-4 bg-slate-800/80 border-slate-700/50 backdrop-blur-sm mx-4 sm:mx-0">
+                <div className="text-center">
+                  <div className="text-lg sm:text-2xl font-bold text-white">{foundWords.size}</div>
+                  <div className="text-xs sm:text-sm text-slate-400">Words Found</div>
+                </div>
+                <div className="h-6 sm:h-8 w-px bg-slate-600"></div>
+                <div className="text-center">
+                  <div className="text-lg sm:text-2xl font-bold text-slate-300">{totalPossibleWords - foundWords.size}</div>
+                  <div className="text-xs sm:text-sm text-slate-400">Remaining</div>
+                </div>
+                <div className="h-6 sm:h-8 w-px bg-slate-600"></div>
+                <div className="text-center">
+                  <div className="text-lg sm:text-2xl font-bold text-yellow-400">{foundPangrams.size}/{pangrams}</div>
+                  <div className="text-xs sm:text-sm text-slate-400">Pangrams</div>
+                </div>
+                <div className="h-6 sm:h-8 w-px bg-slate-600"></div>
+                <div className="text-center">
+                  <div className="text-lg sm:text-2xl font-bold text-blue-400">{progressPercentage}%</div>
+                  <div className="text-xs sm:text-sm text-slate-400">Complete</div>
+                </div>
+              </Card>
               <div className="text-center">
-                <div className="text-lg sm:text-2xl font-bold text-white">{foundWords.size}</div>
-                <div className="text-xs sm:text-sm text-slate-400">Words Found</div>
+                <Button
+                  onClick={resetProgress}
+                  variant="outline"
+                  size="sm"
+                  className="border-slate-600 bg-slate-800 text-slate-300 hover:bg-slate-700 hover:border-slate-500"
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Start New Puzzle
+                </Button>
               </div>
-              <div className="h-6 sm:h-8 w-px bg-slate-600"></div>
-              <div className="text-center">
-                <div className="text-lg sm:text-2xl font-bold text-slate-300">{totalPossibleWords - foundWords.size}</div>
-                <div className="text-xs sm:text-sm text-slate-400">Remaining</div>
-              </div>
-              <div className="h-6 sm:h-8 w-px bg-slate-600"></div>
-              <div className="text-center">
-                <div className="text-lg sm:text-2xl font-bold text-yellow-400">{foundPangrams.size}/{pangrams}</div>
-                <div className="text-xs sm:text-sm text-slate-400">Pangrams</div>
-              </div>
-              <div className="h-6 sm:h-8 w-px bg-slate-600"></div>
-              <div className="text-center">
-                <div className="text-lg sm:text-2xl font-bold text-blue-400">{progressPercentage}%</div>
-                <div className="text-xs sm:text-sm text-slate-400">Complete</div>
-              </div>
-            </Card>
+            </div>
           )}
         </div>
 

@@ -18,6 +18,7 @@ interface GameSessionData {
   hintsData: HintsData;
   foundWords: string[];
   invalidWords: string[];
+  createdAt: string | null;
 }
 
 export const useGameSession = () => {
@@ -99,6 +100,7 @@ export const useGameSession = () => {
         hintsData: {}, // We'll reconstruct this from the session data if needed
         foundWords: validWords,
         invalidWords: invalidWordsData,
+        createdAt: session.created_at,
       };
     } catch (error) {
       console.error('Error loading game session:', error);
