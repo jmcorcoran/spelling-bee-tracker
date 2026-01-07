@@ -64,6 +64,7 @@ const WordTracker = () => {
         setTwoLetterList(sessionData.twoLetterList);
         setFoundWords(new Set(sessionData.foundWords));
         setInvalidWords(new Set(sessionData.invalidWords));
+        setHintsData(sessionData.hintsData || {});
         
         // Calculate pangrams from found words
         const loadedPangrams = sessionData.foundWords.filter(word => {
