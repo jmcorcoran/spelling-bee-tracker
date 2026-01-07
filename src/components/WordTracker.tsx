@@ -146,8 +146,17 @@ useEffect(() => {
   const isValidWord = (word: string): boolean => {
     if (allowedLetters.size === 0) return true; // No restrictions set
     const wordLetters = new Set(word.toUpperCase().split(''));
-    return [...wordLetters].every(letter => allowedLetters.has(letter));
-  };
+    const isValid = [...wordLetters].every(letter => allowedLetters.has(letter));
+  
+  // Debug logging
+  if (!isValid) {
+    const invalidLetters = [...wordLetters].filter(letter => !allowedLetters.has(letter));
+    console.log(`Invalid word "${word}": contains letters not in allowed set:`, invalidLetters);
+    console.log('Allowed letters:', Array.from(allowedLetters));
+  }
+  
+  return isValid;
+};
 
   // Check if a word is a pangram (uses all allowed letters)
   const isPangram = (word: string): boolean => {
