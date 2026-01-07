@@ -11,6 +11,7 @@ import HintsFetcher from './HintsFetcher';
 import { useGameSession } from '@/hooks/useGameSession';
 import { useToast } from '@/hooks/use-toast';
 import { isToday, parseISO } from 'date-fns';
+import { calculateTotalPoints } from '@/utils/pointsCalculator';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,6 +41,7 @@ const WordTracker = () => {
   const [twoLetterList, setTwoLetterList] = useState<{ combo: string; count: number }[]>([]);
   const [pangrams, setPangrams] = useState(0);
   const [showNewDayDialog, setShowNewDayDialog] = useState(false);
+  const [totalPoints, setTotalPoints] = useState(0);
   
   const { toast } = useToast();
   const {
@@ -95,6 +97,12 @@ const WordTracker = () => {
 
     loadExistingSession();
   }, [sessionLoading]);
+
+  // Calculate total points whenever found words or pangrams change
+useEffect(() => {
+  const points = calculateTotalPoints(Array.from(foundWords), foundPangrams);
+  setTotalPoints(points);
+}, [foundWords, foundPangrams]);
 
   const remainingHintsData: HintsData = useMemo(() => {
     const remaining: HintsData = {};
@@ -350,8 +358,8 @@ const WordTracker = () => {
                 </div>
                 <div className="h-6 sm:h-8 w-px bg-slate-600"></div>
                 <div className="text-center">
-                  <div className="text-lg sm:text-2xl font-bold text-slate-300">{totalPossibleWords - foundWords.size}</div>
-                  <div className="text-xs sm:text-sm text-slate-400">Remaining</div>
+                  <div className="text-lg sm:text-2xl font-bold text-slate-300">{totalPoints}</div>
+                  <div className="text-xs sm:text-sm text-slate-400">Points</div>
                 </div>
                 <div className="h-6 sm:h-8 w-px bg-slate-600"></div>
                 <div className="text-center">
