@@ -83,18 +83,18 @@ if (letterMatch) {
   }
 
           const values = letterMatch[2]
-            .split(/[\s|,;]+/)
-            .map(v => v.trim())
-            .filter(v => v.length > 0)
-            console.log(`Letter ${letter} raw values:`, values);
+  .split(/[\s|,;]+/)
+  .map(v => v.trim())
+  .filter(v => v.length > 0);
+
+console.log(`Letter ${letter} raw values:`, values);
 
 const processedValues = values.slice(0, -1);
 console.log(`Letter ${letter} after slice:`, processedValues);
-            .slice(0, -1);
 
-          if (values.length > 0) {
-            hintsData[letter] = {};
-            values.forEach((value, idx) => {
+if (processedValues.length > 0) {
+  hintsData[letter] = {};
+  processedValues.forEach((value, idx) => {
               const count = (value === '-' || value === 'O' || value === '0') ? 0 : parseInt(value, 10);
               if (!isNaN(count) && count > 0) {
                 const length = 4 + idx;
