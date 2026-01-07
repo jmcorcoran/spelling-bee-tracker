@@ -5,6 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { FileText, Download, AlertCircle, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import HintsImageUpload from './HintsImageUpload';
 
 interface HintsData {
   [letter: string]: {
@@ -218,18 +219,23 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
       </div>
 
       <div className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-slate-200 mb-2">
-            Combined Hints & Two-Letter Data
-          </label>
-          <Textarea
-            placeholder="Paste both hints table and two-letter data here. The parser will automatically separate them..."
-            value={combinedText}
-            onChange={(e) => setCombinedText(e.target.value)}
-            className="min-h-[200px] font-mono text-sm bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-400"
-            rows={10}
-          />
-        </div>
+        {/* Image Upload for Screenshots */}
+  <HintsImageUpload onHintsLoaded={onHintsLoaded} />
+  
+  {/* Divider */}
+  <div className="relative">
+    <div className="absolute inset-0 flex items-center">
+      <div className="w-full border-t border-slate-600"></div>
+    </div>
+    <div className="relative flex justify-center text-sm">
+      <span className="px-2 bg-slate-800 text-slate-400">or paste text manually</span>
+    </div>
+  </div>
+
+  <div>
+    <label className="block text-sm font-medium text-slate-200 mb-2">
+      Combined Hints & Two-Letter Data
+    </label>
 
         <Button
           onClick={parseHints}
