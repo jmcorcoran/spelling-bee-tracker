@@ -30,7 +30,6 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
     const lines = text.split('\n').map(line => line.trim());
     
     for (const line of lines) {
-      // First try to find ALL patterns like "AB: 5" or "AB 5" or "AB-5" in the line
       const matches = [...line.matchAll(/([A-Z]{2})[:\s\-]+(\d+)/gi)];
       
       if (matches.length > 0) {
@@ -38,7 +37,6 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
           const combo = match[1].toUpperCase();
           const count = parseInt(match[2], 10);
           if (combo.length === 2 && count > 0) {
-            // Check if this combo already exists, if so, update the count
             const existingIndex = results.findIndex(r => r.combo === combo);
             if (existingIndex >= 0) {
               results[existingIndex].count += count;
@@ -48,14 +46,13 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
           }
         });
       } else {
-        // Fallback: extract ALL 2-letter combos from the line
         const words = line.split(/[\s,;|]+/)
           .map(word => word.replace(/[^A-Za-z]/g, '').toUpperCase())
           .filter(word => word.length === 2 && /^[A-Z]+$/.test(word));
         
         words.forEach(combo => {
           if (!results.find(r => r.combo === combo)) {
-            results.push({ combo, count: 0 }); // No count available
+            results.push({ combo, count: 0 });
           }
         });
       }
@@ -63,7 +60,7 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
     
     return results.sort((a, b) => a.combo.localeCompare(b.combo));
   };
-  // Parse hints data from page text (expects rows like "a: 2 4 2 - - - - 8")
+
   const parseHintsFromContent = (
     content: string
   ): { hintsData: HintsData; totalWords: number; pangrams: number; allowedLetters: string[] } | null => {
@@ -75,10 +72,8 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
 
       const lines = content.split("\n").map((l) => l.trim()).filter(l => l.length > 0);
 
-      // First line should contain the allowed letters (e.g., "k c d e n o u")
       if (lines.length > 0) {
         const firstLine = lines[0];
-        // Check if first line looks like space-separated letters
         if (/^[a-z]\s+[a-z]/.test(firstLine)) {
           allowedLetters = firstLine.split(/\s+/).map(letter => letter.toUpperCase()).filter(l => /^[A-Z]$/.test(l));
         }
@@ -87,31 +82,26 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
       for (const raw of lines) {
         const line = raw.replace(/\u00A0/g, " ");
         
-        // Parse pangram count from "WORDS: 50, POINTS: 238, PANGRAMS: 1"
         const pangramMatch = line.match(/PANGRAMS?:\s*(\d+)/i);
         if (pangramMatch) {
           pangrams = parseInt(pangramMatch[1], 10);
           continue;
         }
         
-        // Match: single letter followed by colon, then tab/space separated values
-        // Example: "a:	2	4	2	-	-	-	-	8"
         const letterMatch = line.match(/^([a-z]):\s*(.+)$/i);
         if (letterMatch) {
           const letter = letterMatch[1].toUpperCase();
           
-          // Skip the totals row (Σ)
           if (letter === 'Σ') continue;
           
-          // Split by tabs or multiple spaces, filter out the final total (Σ column)
-          const values = letterMatch[2].split(/\s+/).slice(0, -1); // Remove last element (row total)
+          const values = letterMatch[2].split(/\s+/).slice(0, -1);
           
           if (values.length > 0) {
             hintsData[letter] = {};
             values.forEach((value, idx) => {
               const count = value === '-' ? 0 : parseInt(value, 10);
               if (!isNaN(count) && count > 0) {
-                const length = 4 + idx; // columns start at 4 letters
+                const length = 4 + idx;
                 hintsData[letter][length] = count;
                 totalWords += count;
               }
@@ -121,7 +111,7 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
       }
 
       if (Object.keys(hintsData).length === 0) {
-        return null; // don't fabricate data; signal parse failure
+        return null;
       }
 
       return { hintsData, totalWords, pangrams, allowedLetters };
@@ -131,26 +121,21 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
     }
   };
 
-  // Function to separate combined text into hints and two-letter data
   const separateContent = (text: string): { hintsText: string; twoLetterText: string } => {
     const lines = text.split('\n').map(line => line.trim());
     const hintsLines: string[] = [];
     const twoLetterLines: string[] = [];
     
     for (const line of lines) {
-      // Check if line looks like allowed letters (first line with space-separated letters)
       if (/^[a-z]\s+[a-z]/.test(line)) {
         hintsLines.push(line);
       }
-      // Check if line looks like a hints table row (starts with letter followed by colon)
       else if (/^[a-z]:\s*[\d\-\s]+$/i.test(line) || /PANGRAMS?:\s*\d+/i.test(line) || /WORDS:\s*\d+/i.test(line) || /^\d+\s+\d+/.test(line)) {
         hintsLines.push(line);
       }
-      // Check if line contains two-letter patterns
       else if (/([A-Z]{2})[:\s\-]+\d+/i.test(line) || /^[A-Z]{2}(\s+[A-Z]{2})*$/i.test(line)) {
         twoLetterLines.push(line);
       }
-      // If it's not empty and doesn't match either pattern, add to hints as fallback
       else if (line.length > 0) {
         hintsLines.push(line);
       }
@@ -214,28 +199,36 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
           Load Hints Data
         </h2>
         <p className="text-slate-300">
-          Paste the hints table from the NYT Spelling Bee forum page
+          Upload a screenshot or paste the hints table
         </p>
       </div>
 
       <div className="space-y-4">
         {/* Image Upload for Screenshots */}
-  <HintsImageUpload onHintsLoaded={onHintsLoaded} />
-  
-  {/* Divider */}
-  <div className="relative">
-    <div className="absolute inset-0 flex items-center">
-      <div className="w-full border-t border-slate-600"></div>
-    </div>
-    <div className="relative flex justify-center text-sm">
-      <span className="px-2 bg-slate-800 text-slate-400">or paste text manually</span>
-    </div>
-  </div>
+        <HintsImageUpload onHintsLoaded={onHintsLoaded} />
+        
+        {/* Divider */}
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-slate-600"></div>
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span className="px-2 bg-slate-800 text-slate-400">or paste text manually</span>
+          </div>
+        </div>
 
-  <div>
-    <label className="block text-sm font-medium text-slate-200 mb-2">
-      Combined Hints & Two-Letter Data
-    </label>
+        <div>
+          <label className="block text-sm font-medium text-slate-200 mb-2">
+            Combined Hints & Two-Letter Data
+          </label>
+          <Textarea
+            placeholder="Paste both hints table and two-letter data here..."
+            value={combinedText}
+            onChange={(e) => setCombinedText(e.target.value)}
+            className="min-h-[200px] font-mono text-sm bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-400"
+            rows={10}
+          />
+        </div>
 
         <Button
           onClick={parseHints}
