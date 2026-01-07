@@ -97,7 +97,7 @@ export const useGameSession = () => {
         targetPoints: session.target_points,
         targetPangrams: session.target_pangrams,
         twoLetterList: (session.two_letter_list as { combo: string; count: number }[]) || [],
-        hintsData: {}, // We'll reconstruct this from the session data if needed
+        hintsData: (session.hints_data as HintsData) || {},
         foundWords: validWords,
         invalidWords: invalidWordsData,
         createdAt: session.created_at,
@@ -126,6 +126,7 @@ export const useGameSession = () => {
         target_points: 0, // Not tracking points currently
         target_pangrams: targetPangrams,
         two_letter_list: twoLetterList,
+        hints_data: hintsData,
       };
 
       if (sessionId) {
