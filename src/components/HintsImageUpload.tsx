@@ -86,6 +86,10 @@ if (letterMatch) {
             .split(/[\s|,;]+/)
             .map(v => v.trim())
             .filter(v => v.length > 0)
+            console.log(`Letter ${letter} raw values:`, values);
+
+const processedValues = values.slice(0, -1);
+console.log(`Letter ${letter} after slice:`, processedValues);
             .slice(0, -1);
 
           if (values.length > 0) {
