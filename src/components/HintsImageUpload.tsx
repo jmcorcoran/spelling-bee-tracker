@@ -104,14 +104,15 @@ const HintsImageUpload = ({ onHintsLoaded }: HintsImageUploadProps) => {
               }, 0);
               
               // If the last value is much larger than the sum, it's probably concatenated
-              const lastNum = parseInt(lastValue, 10);
-              if (lastNum > sumWithoutLast * 2) {
-                // Try splitting: take last 1-2 digits as the count
-                for (let splitPos = 1; splitPos <= 2 && splitPos < lastValue.length; splitPos++) {
-                  const possibleCount = lastValue.slice(-splitPos);
-                  const possibleTotal = lastValue.slice(0, -splitPos);
-                  const count = parseInt(possibleCount, 10);
-                  const total = parseInt(possibleTotal, 10);
+const lastNum = parseInt(lastValue, 10);
+if (lastNum > sumWithoutLast * 1.5) {
+  // Try splitting at different positions
+  let splitFound = false;
+  for (let splitPos = 1; splitPos < lastValue.length && !splitFound; splitPos++) {
+    const possibleCount = lastValue.slice(0, splitPos);
+    const possibleTotal = lastValue.slice(splitPos);
+    const count = parseInt(possibleCount, 10);
+    const total = parseInt(possibleTotal, 10);
                   
                   // Check if this split makes sense (total should equal sum + count)
                   if (total === sumWithoutLast + count) {
