@@ -71,11 +71,16 @@ const HintsImageUpload = ({ onHintsLoaded }: HintsImageUploadProps) => {
           continue;
         }
 
-        const letterMatch = line.match(/^([a-z])[:\s]+(.+)$/i);
-        if (letterMatch) {
-          const letter = letterMatch[1].toUpperCase();
+const letterMatch = line.match(/^([a-z])[:\s]+(.+)$/i);
+if (letterMatch) {
+  const letter = letterMatch[1].toUpperCase();
 
-          if (letter === 'Σ' || letter === 'E' || line.toLowerCase().includes('total')) continue;
+  // Skip non-letter characters and totals row
+  // Only process if it's a single letter from the allowed letters list
+  if (!/^[A-Z]$/.test(letter) || !allowedLetters.includes(letter)) {
+    console.log(`Skipping row with letter "${letter}" - not in allowed letters`);
+    continue;
+  }
 
           const values = letterMatch[2]
             .split(/[\s|,;]+/)
