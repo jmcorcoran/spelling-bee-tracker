@@ -21,8 +21,11 @@ jobs:
         with:
           node-version: '20'
           
-      - name: Install dependencies
-        run: npm install --legacy-peer-deps
+- name: Install dependencies
+  run: |
+    rm -rf node_modules
+    rm -rf dist
+    npm install --legacy-peer-deps
         
       - name: Build
         run: npm run build -- --config vite.config.production.ts
