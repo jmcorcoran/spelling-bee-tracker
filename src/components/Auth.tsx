@@ -35,7 +35,7 @@ const Auth = ({ user, onAuthChange }: AuthProps) => {
       const { error } = await supabase.auth.signInWithOtp({
         email: email.trim(),
         options: {
-          emailRedirectTo: window.location.origin,
+          emailRedirectTo: `${window.location.origin}/spelling-bee-tracker/`,
         },
       });
 
