@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { FileText, Download, AlertCircle, CheckCircle } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { FileText, Download, AlertCircle, CheckCircle, Link as LinkIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface HintsData {
@@ -18,6 +20,7 @@ interface HintsFetcherProps {
 
 const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
   const [combinedText, setCombinedText] = useState('');
+  const [url, setUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [lastFetched, setLastFetched] = useState<string | null>(null);
   const { toast } = useToast();
@@ -29,7 +32,6 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
     const lines = text.split('\n').map(line => line.trim());
     
     for (const line of lines) {
-      // First try to find ALL patterns like "AB: 5" or "AB 5" or "AB-5" in the line
       const matches = [...line.matchAll(/([A-Z]{2})[:\s\-]+(\d+)/gi)];
       
       if (matches.length > 0) {
@@ -37,7 +39,6 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
           const combo = match[1].toUpperCase();
           const count = parseInt(match[2], 10);
           if (combo.length === 2 && count > 0) {
-            // Check if this combo already exists, if so, update the count
             const existingIndex = results.findIndex(r => r.combo === combo);
             if (existingIndex >= 0) {
               results[existingIndex].count += count;
@@ -47,14 +48,13 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
           }
         });
       } else {
-        // Fallback: extract ALL 2-letter combos from the line
         const words = line.split(/[\s,;|]+/)
           .map(word => word.replace(/[^A-Za-z]/g, '').toUpperCase())
           .filter(word => word.length === 2 && /^[A-Z]+$/.test(word));
         
         words.forEach(combo => {
           if (!results.find(r => r.combo === combo)) {
-            results.push({ combo, count: 0 }); // No count available
+            results.push({ combo, count: 0 });
           }
         });
       }
@@ -62,7 +62,7 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
     
     return results.sort((a, b) => a.combo.localeCompare(b.combo));
   };
-  // Parse hints data from page text (expects rows like "a: 2 4 2 - - - - 8")
+
   const parseHintsFromContent = (
     content: string
   ): { hintsData: HintsData; totalWords: number; pangrams: number; allowedLetters: string[] } | null => {
@@ -74,10 +74,8 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
 
       const lines = content.split("\n").map((l) => l.trim()).filter(l => l.length > 0);
 
-      // First line should contain the allowed letters (e.g., "k c d e n o u")
       if (lines.length > 0) {
         const firstLine = lines[0];
-        // Check if first line looks like space-separated letters
         if (/^[a-z]\s+[a-z]/.test(firstLine)) {
           allowedLetters = firstLine.split(/\s+/).map(letter => letter.toUpperCase()).filter(l => /^[A-Z]$/.test(l));
         }
@@ -86,31 +84,26 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
       for (const raw of lines) {
         const line = raw.replace(/\u00A0/g, " ");
         
-        // Parse pangram count from "WORDS: 50, POINTS: 238, PANGRAMS: 1"
         const pangramMatch = line.match(/PANGRAMS?:\s*(\d+)/i);
         if (pangramMatch) {
           pangrams = parseInt(pangramMatch[1], 10);
           continue;
         }
         
-        // Match: single letter followed by colon, then tab/space separated values
-        // Example: "a:	2	4	2	-	-	-	-	8"
         const letterMatch = line.match(/^([a-z]):\s*(.+)$/i);
         if (letterMatch) {
           const letter = letterMatch[1].toUpperCase();
           
-          // Skip the totals row (Σ)
           if (letter === 'Σ') continue;
           
-          // Split by tabs or multiple spaces, filter out the final total (Σ column)
-          const values = letterMatch[2].split(/\s+/).slice(0, -1); // Remove last element (row total)
+          const values = letterMatch[2].split(/\s+/).slice(0, -1);
           
           if (values.length > 0) {
             hintsData[letter] = {};
             values.forEach((value, idx) => {
               const count = value === '-' ? 0 : parseInt(value, 10);
               if (!isNaN(count) && count > 0) {
-                const length = 4 + idx; // columns start at 4 letters
+                const length = 4 + idx;
                 hintsData[letter][length] = count;
                 totalWords += count;
               }
@@ -120,7 +113,7 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
       }
 
       if (Object.keys(hintsData).length === 0) {
-        return null; // don't fabricate data; signal parse failure
+        return null;
       }
 
       return { hintsData, totalWords, pangrams, allowedLetters };
@@ -130,26 +123,21 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
     }
   };
 
-  // Function to separate combined text into hints and two-letter data
   const separateContent = (text: string): { hintsText: string; twoLetterText: string } => {
     const lines = text.split('\n').map(line => line.trim());
     const hintsLines: string[] = [];
     const twoLetterLines: string[] = [];
     
     for (const line of lines) {
-      // Check if line looks like allowed letters (first line with space-separated letters)
       if (/^[a-z]\s+[a-z]/.test(line)) {
         hintsLines.push(line);
       }
-      // Check if line looks like a hints table row (starts with letter followed by colon)
       else if (/^[a-z]:\s*[\d\-\s]+$/i.test(line) || /PANGRAMS?:\s*\d+/i.test(line) || /WORDS:\s*\d+/i.test(line) || /^\d+\s+\d+/.test(line)) {
         hintsLines.push(line);
       }
-      // Check if line contains two-letter patterns
       else if (/([A-Z]{2})[:\s\-]+\d+/i.test(line) || /^[A-Z]{2}(\s+[A-Z]{2})*$/i.test(line)) {
         twoLetterLines.push(line);
       }
-      // If it's not empty and doesn't match either pattern, add to hints as fallback
       else if (line.length > 0) {
         hintsLines.push(line);
       }
@@ -159,6 +147,99 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
       hintsText: hintsLines.join('\n'),
       twoLetterText: twoLetterLines.join('\n')
     };
+  };
+
+  const fetchFromUrl = async () => {
+    if (!url.trim()) {
+      toast({
+        title: "URL Required",
+        description: "Please enter the NYT Spelling Bee forum URL.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      // Use a CORS proxy to fetch the page
+      const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+      
+      const response = await fetch(proxyUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch: ${response.statusText}`);
+      }
+
+      const html = await response.text();
+      
+      // Parse HTML to extract hints table
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      
+      // Try to find the hints table - adjust selectors based on actual page structure
+      let hintsText = '';
+      
+      // Look for pre-formatted text or code blocks that might contain the hints
+      const preElements = doc.querySelectorAll('pre, code, .highlight, .code-block');
+      for (const pre of preElements) {
+        const text = pre.textContent || '';
+        if (text.includes(':') && /[a-z]:\s*[\d-]/.test(text)) {
+          hintsText = text;
+          break;
+        }
+      }
+      
+      // If not found in pre/code, look in paragraphs or divs
+      if (!hintsText) {
+        const textElements = doc.querySelectorAll('p, div, article');
+        for (const elem of textElements) {
+          const text = elem.textContent || '';
+          if (text.includes(':') && /[a-z]:\s*[\d-]/.test(text) && text.length > 50) {
+            hintsText = text;
+            break;
+          }
+        }
+      }
+
+      if (!hintsText) {
+        toast({
+          title: "Could not find hints",
+          description: "Unable to locate the hints table on this page. Try copying and pasting instead.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Process the extracted text
+      const { hintsText: processedHints, twoLetterText } = separateContent(hintsText);
+      const parsed = parseHintsFromContent(processedHints);
+      const twoLetterList = parseTwoLetterList(twoLetterText);
+
+      if (!parsed) {
+        toast({
+          title: "Could not parse hints",
+          description: "The page structure might have changed. Try copying and pasting instead.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      onHintsLoaded(parsed.hintsData, parsed.totalWords, twoLetterList, parsed.pangrams, parsed.allowedLetters);
+      setLastFetched(new Date().toLocaleString());
+      toast({
+        title: "Hints Loaded!",
+        description: `Loaded ${parsed.totalWords} total words${twoLetterList.length > 0 ? ` and ${twoLetterList.length} two-letter combos` : ''} from URL.`,
+      });
+    } catch (error) {
+      console.error("Error fetching from URL:", error);
+      toast({
+        title: "Error Loading URL",
+        description: "Could not fetch the page. The site might block requests or the URL is invalid.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const parseHints = async () => {
@@ -213,63 +294,107 @@ const HintsFetcher = ({ onHintsLoaded }: HintsFetcherProps) => {
           Load Hints Data
         </h2>
         <p className="text-slate-300">
-          Paste the hints table from the NYT Spelling Bee forum page
+          Load hints from a URL or paste the text directly
         </p>
       </div>
 
-      <div className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-slate-200 mb-2">
-            Combined Hints & Two-Letter Data
-          </label>
-          <Textarea
-            placeholder="Paste both hints table and two-letter data here. The parser will automatically separate them..."
-            value={combinedText}
-            onChange={(e) => setCombinedText(e.target.value)}
-            className="min-h-[200px] font-mono text-sm bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-400"
-            rows={10}
-          />
-        </div>
+      <Tabs defaultValue="url" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 bg-slate-700/50">
+          <TabsTrigger value="url" className="data-[state=active]:bg-slate-600">
+            <LinkIcon className="h-4 w-4 mr-2" />
+            From URL
+          </TabsTrigger>
+          <TabsTrigger value="paste" className="data-[state=active]:bg-slate-600">
+            <FileText className="h-4 w-4 mr-2" />
+            Paste Text
+          </TabsTrigger>
+        </TabsList>
 
-        <Button
-          onClick={parseHints}
-          disabled={isLoading || !combinedText.trim()}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-        >
-          {isLoading ? (
-            <>
-              <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
-              Parsing Hints...
-            </>
-          ) : (
-            <>
-              <Download className="h-4 w-4 mr-2" />
-              Parse Hints Data
-            </>
-          )}
-        </Button>
-
-        {lastFetched && (
-          <div className="flex items-center gap-2 p-3 bg-blue-900/30 rounded-lg border border-blue-700/50">
-            <CheckCircle className="h-4 w-4 text-blue-400" />
-            <span className="text-sm text-slate-200">
-              Last updated: {lastFetched}
-            </span>
+        <TabsContent value="url" className="space-y-4 mt-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-200 mb-2">
+              NYT Forum URL
+            </label>
+            <Input
+              placeholder="https://www.nytimes.com/..."
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              className="bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-400"
+            />
           </div>
-        )}
 
-        <div className="p-3 bg-slate-700/50 rounded-lg border border-slate-600/50">
-          <div className="flex items-start gap-2">
-            <AlertCircle className="h-4 w-4 text-slate-400 mt-0.5" />
-            <div className="text-sm text-slate-300">
-              <p className="font-medium mb-1">Expected Format:</p>
-              <ul className="text-xs space-y-1 text-slate-400">
-                <li>• Each line should start with a letter (A, B, C, etc.)</li>
-                <li>• Followed by word counts for different lengths</li>
-                <li>• Example: "A 3 2 1" means 3 four-letter words, 2 five-letter words, 1 six-letter word</li>
-                <li>• Two-letter list format: "AB: 5" or "AB 5" (combo followed by count)</li>
-              </ul>
-            </div>
+          <Button
+            onClick={fetchFromUrl}
+            disabled={isLoading || !url.trim()}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            {isLoading ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                Fetching from URL...
+              </>
+            ) : (
+              <>
+                <Download className="h-4 w-4 mr-2" />
+                Load from URL
+              </>
+            )}
+          </Button>
+        </TabsContent>
+
+        <TabsContent value="paste" className="space-y-4 mt-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-200 mb-2">
+              Combined Hints & Two-Letter Data
+            </label>
+            <Textarea
+              placeholder="Paste both hints table and two-letter data here..."
+              value={combinedText}
+              onChange={(e) => setCombinedText(e.target.value)}
+              className="min-h-[200px] font-mono text-sm bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-400"
+              rows={10}
+            />
+          </div>
+
+          <Button
+            onClick={parseHints}
+            disabled={isLoading || !combinedText.trim()}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            {isLoading ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                Parsing Hints...
+              </>
+            ) : (
+              <>
+                <Download className="h-4 w-4 mr-2" />
+                Parse Hints Data
+              </>
+            )}
+          </Button>
+        </TabsContent>
+      </Tabs>
+
+      {lastFetched && (
+        <div className="flex items-center gap-2 p-3 bg-blue-900/30 rounded-lg border border-blue-700/50 mt-4">
+          <CheckCircle className="h-4 w-4 text-blue-400" />
+          <span className="text-sm text-slate-200">
+            Last updated: {lastFetched}
+          </span>
+        </div>
+      )}
+
+      <div className="p-3 bg-slate-700/50 rounded-lg border border-slate-600/50 mt-4">
+        <div className="flex items-start gap-2">
+          <AlertCircle className="h-4 w-4 text-slate-400 mt-0.5" />
+          <div className="text-sm text-slate-300">
+            <p className="font-medium mb-1">Tips:</p>
+            <ul className="text-xs space-y-1 text-slate-400">
+              <li>• URL method works with NYT forum pages that have hints</li>
+              <li>• If URL doesn't work, copy/paste the hints table directly</li>
+              <li>• Include both the letter grid and two-letter combos if available</li>
+            </ul>
           </div>
         </div>
       </div>
