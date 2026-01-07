@@ -1,3 +1,4 @@
+import Auth from './Auth';
 import { useState, useMemo, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -43,6 +44,7 @@ const WordTracker = () => {
   const { toast } = useToast();
   const {
     isLoading: sessionLoading,
+    user,
     loadGameSession,
     saveGameSession,
     addFoundWord,
@@ -330,6 +332,11 @@ const WordTracker = () => {
               Spelling Bee Tracker
             </h1>
           </div>
+
+          <div className="mb-4">
+            <Auth user={user} onAuthChange={() => window.location.reload()} />
+          </div>
+          
           <p className="text-sm sm:text-lg text-slate-300 mb-4 sm:mb-6 px-4">
             Load today's hints and track your progress with image uploads
           </p>
