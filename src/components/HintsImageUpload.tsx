@@ -42,11 +42,25 @@ const HintsImageUpload = ({ onHintsLoaded }: HintsImageUploadProps) => {
       const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
 
       if (lines.length > 0) {
-        const firstLine = lines[0];
-        if (/^[a-z]\s+[a-z]/.test(firstLine)) {
-          allowedLetters = firstLine.split(/\s+/).map(letter => letter.toUpperCase()).filter(l => /^[A-Z]$/.test(l));
-        }
-      }
+  const firstLine = lines[0];
+  // Handle both spaced (D E L M N P U) and concatenated (PUDELMN) formats
+  if (/^[a-z\s]+$/i.test(firstLine) && firstLine.length >= 7) {
+    // If it has spaces, split by spaces
+    if (firstLine.includes(' ')) {
+      allowedLetters = firstLine.split(/\s+/).map(letter => letter.toUpperCase()).filter(l => /^[A-Z]$/.test(l));
+    } else {
+      // If concatenated, split into individual characters
+      allowedLetters = firstLine.split('').map(l => l.toUpperCase()).filter(l => /^[A-Z]$/.test(l));
+    }
+    
+    // Ensure we have exactly 7 letters
+    if (allowedLetters.length === 7) {
+      console.log('Parsed allowed letters:', allowedLetters);
+    } else {
+      allowedLetters = [];
+    }
+  }
+}
 
       for (const raw of lines) {
         const line = raw.replace(/\u00A0/g, ' ');
