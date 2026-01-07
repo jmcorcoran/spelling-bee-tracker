@@ -42,25 +42,25 @@ const HintsImageUpload = ({ onHintsLoaded }: HintsImageUploadProps) => {
       const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
 
       if (lines.length > 0) {
-  const firstLine = lines[0];
-  // Handle both spaced (D E L M N P U) and concatenated (PUDELMN) formats
-  if (/^[a-z\s]+$/i.test(firstLine) && firstLine.length >= 7) {
-    // If it has spaces, split by spaces
-    if (firstLine.includes(' ')) {
-      allowedLetters = firstLine.split(/\s+/).map(letter => letter.toUpperCase()).filter(l => /^[A-Z]$/.test(l));
-    } else {
-      // If concatenated, split into individual characters
-      allowedLetters = firstLine.split('').map(l => l.toUpperCase()).filter(l => /^[A-Z]$/.test(l));
-    }
-    
-    // Ensure we have exactly 7 letters
-    if (allowedLetters.length === 7) {
-      console.log('Parsed allowed letters:', allowedLetters);
-    } else {
-      allowedLetters = [];
-    }
-  }
-}
+        const firstLine = lines[0];
+        // Handle both spaced (D E L M N P U) and concatenated (PUDELMN) formats
+        if (/^[a-z\s]+$/i.test(firstLine) && firstLine.length >= 7) {
+          // If it has spaces, split by spaces
+          if (firstLine.includes(' ')) {
+            allowedLetters = firstLine.split(/\s+/).map(letter => letter.toUpperCase()).filter(l => /^[A-Z]$/.test(l));
+          } else {
+            // If concatenated, split into individual characters
+            allowedLetters = firstLine.split('').map(l => l.toUpperCase()).filter(l => /^[A-Z]$/.test(l));
+          }
+          
+          // Ensure we have exactly 7 letters
+          if (allowedLetters.length === 7) {
+            console.log('Parsed allowed letters:', allowedLetters);
+          } else {
+            allowedLetters = [];
+          }
+        }
+      }
 
       for (const raw of lines) {
         const line = raw.replace(/\u00A0/g, ' ');
@@ -71,30 +71,66 @@ const HintsImageUpload = ({ onHintsLoaded }: HintsImageUploadProps) => {
           continue;
         }
 
-const letterMatch = line.match(/^([a-z])[:\s]+(.+)$/i);
-if (letterMatch) {
-  const letter = letterMatch[1].toUpperCase();
+        const letterMatch = line.match(/^([a-z])[:\s]+(.+)$/i);
+        if (letterMatch) {
+          const letter = letterMatch[1].toUpperCase();
 
-  // Skip non-letter characters and totals row
-  // Only process if it's a single letter from the allowed letters list
-  if (!/^[A-Z]$/.test(letter) || !allowedLetters.includes(letter)) {
-    console.log(`Skipping row with letter "${letter}" - not in allowed letters`);
-    continue;
-  }
+          // Skip non-letter characters and totals row
+          // Only process if it's a single letter from the allowed letters list
+          if (!/^[A-Z]$/.test(letter) || !allowedLetters.includes(letter)) {
+            console.log(`Skipping row with letter "${letter}" - not in allowed letters`);
+            continue;
+          }
 
-          const values = letterMatch[2]
-  .split(/[\s|,;]+/)
-  .map(v => v.trim())
-  .filter(v => v.length > 0);
+          let rawValues = letterMatch[2]
+            .split(/[\s|,;]+/)
+            .map(v => v.trim())
+            .filter(v => v.length > 0);
 
-console.log(`Letter ${letter} raw values:`, values);
+          console.log(`Letter ${letter} raw values:`, rawValues);
 
-const processedValues = values.slice(0, -1);
-console.log(`Letter ${letter} after slice:`, processedValues);
+          // The last value should be the total (sum of all others)
+          // Sometimes OCR concatenates the last count with the total (e.g., "210" instead of "2 10")
+          // Check if the last value looks like it might be concatenated
+          if (rawValues.length >= 2) {
+            const lastValue = rawValues[rawValues.length - 1];
+            
+            // If the last value is multiple digits, check if it should be split
+            if (lastValue.length >= 2 && /^\d+$/.test(lastValue)) {
+              // Calculate what the sum should be (excluding last value)
+              const sumWithoutLast = rawValues.slice(0, -1).reduce((sum, val) => {
+                const num = (val === '-' || val === 'O' || val === '0') ? 0 : parseInt(val, 10);
+                return sum + (isNaN(num) ? 0 : num);
+              }, 0);
+              
+              // If the last value is much larger than the sum, it's probably concatenated
+              const lastNum = parseInt(lastValue, 10);
+              if (lastNum > sumWithoutLast * 2) {
+                // Try splitting: take last 1-2 digits as the count
+                for (let splitPos = 1; splitPos <= 2 && splitPos < lastValue.length; splitPos++) {
+                  const possibleCount = lastValue.slice(-splitPos);
+                  const possibleTotal = lastValue.slice(0, -splitPos);
+                  const count = parseInt(possibleCount, 10);
+                  const total = parseInt(possibleTotal, 10);
+                  
+                  // Check if this split makes sense (total should equal sum + count)
+                  if (total === sumWithoutLast + count) {
+                    rawValues[rawValues.length - 1] = possibleCount;
+                    rawValues.push(possibleTotal);
+                    console.log(`Split concatenated value: ${lastValue} -> ${possibleCount} and ${possibleTotal}`);
+                    break;
+                  }
+                }
+              }
+            }
+          }
 
-if (processedValues.length > 0) {
-  hintsData[letter] = {};
-  processedValues.forEach((value, idx) => {
+          const processedValues = rawValues.slice(0, -1);
+          console.log(`Letter ${letter} after slice:`, processedValues);
+
+          if (processedValues.length > 0) {
+            hintsData[letter] = {};
+            processedValues.forEach((value, idx) => {
               const count = (value === '-' || value === 'O' || value === '0') ? 0 : parseInt(value, 10);
               if (!isNaN(count) && count > 0) {
                 const length = 4 + idx;
