@@ -74,7 +74,7 @@ const WordTracker = () => {
         });
         setFoundPangrams(new Set(loadedPangrams));
         
-        setHasLoadedHints(sessionData.targetWords > 0);
+        setHasLoadedHints(sessionData.targetWords > 0 && Object.keys(sessionData.hintsData || {}).length > 0);
         
         // Check if session is from a previous day
         if (sessionData.createdAt) {
