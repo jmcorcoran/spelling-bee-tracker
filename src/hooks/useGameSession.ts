@@ -24,10 +24,11 @@ interface GameSessionData {
 export const useGameSession = () => {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [user, setUser] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
-  // Initialize anonymous session
+  // Initialize session and listen for auth changes
   useEffect(() => {
     const initSession = async () => {
       try {
@@ -36,11 +37,13 @@ export const useGameSession = () => {
         
         if (session?.user) {
           setUserId(session.user.id);
+          setUser(session.user);
         } else {
-          // Sign in anonymously
+          // Sign in anonymously if no user
           const { data, error } = await supabase.auth.signInAnonymously();
           if (error) throw error;
           setUserId(data.user?.id || null);
+          setUser(data.user);
         }
       } catch (error) {
         console.error('Error initializing session:', error);
@@ -55,6 +58,22 @@ export const useGameSession = () => {
     };
 
     initSession();
+
+    // Listen for auth changes (login/logout)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        setUserId(session.user.id);
+        setUser(session.user);
+      } else {
+        setUserId(null);
+        setUser(null);
+        setSessionId(null);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, [toast]);
 
   // Load existing game session
@@ -123,7 +142,7 @@ export const useGameSession = () => {
         user_id: userId,
         allowed_letters: allowedLetters.join(''),
         target_words: targetWords,
-        target_points: 0, // Not tracking points currently
+        target_points: 0,
         target_pangrams: targetPangrams,
         two_letter_list: twoLetterList,
         hints_data: hintsData,
@@ -231,6 +250,7 @@ export const useGameSession = () => {
   return {
     isLoading,
     userId,
+    user,
     sessionId,
     loadGameSession,
     saveGameSession,
